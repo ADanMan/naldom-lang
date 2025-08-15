@@ -1,0 +1,7 @@
+[package]
+name = "naldom-pkg"
+# Inherits most fields from workspace.package
+description = "Package manager for Naldom, handling dependencies and distribution of Naldom modules."
+
+[dependencies]
+# Example: reqwest = { version = "0.11", features = ["json"] } # For network requests

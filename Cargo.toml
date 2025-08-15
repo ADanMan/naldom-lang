@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "crates/naldom-core",
+    "crates/naldom-cli",
+    "crates/naldom-runtime",
+    "crates/naldom-pkg",
+    "crates/naldom-ir",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["The Naldom Project Contributors"]
+license = "MIT"
+repository = "https://github.com/naldom-lang/naldom-lang"
+description = "Naldom: Natural Language Domain Markdown language project"
+
+# Common dependencies for all crates (optional, but good for consistency)
+[workspace.dependencies]
+# Example: If all crates will use anyhow for error handling
+# anyhow = "1.0"

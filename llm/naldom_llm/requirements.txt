@@ -1,0 +1,5 @@
+# Python dependencies for Naldom LLM integration
+# e.g.,
+# transformers
+# torch
+# pydantic

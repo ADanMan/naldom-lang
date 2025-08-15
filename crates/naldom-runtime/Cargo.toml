@@ -1,0 +1,7 @@
+[package]
+name = "naldom-runtime"
+# Inherits most fields from workspace.package
+description = "Minimal cross-platform runtime for Naldom generated code."
+
+[dependencies]
+# Example: wasmtime = "19.0" # If WASM runtime is implemented directly

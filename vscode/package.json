@@ -1,0 +1,51 @@
+{
+  "name": "naldom-vscode",
+  "displayName": "Naldom for VS Code",
+  "description": "Visual Studio Code extension for the Naldom language, providing syntax highlighting, intelligent code completion, and more.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [{
+      "id": "naldom",
+      "aliases": ["Naldom", "naldom"],
+      "extensions": [".nldm", ".naldom.md"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "naldom",
+      "scopeName": "source.naldom",
+      "path": "./syntaxes/naldom.tmLanguage.json"
+    }]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "test-compile": "tsc -p ./",
+    "test-unit": "node ./out/test/unit/index.js",
+    "test-e2e": "node ./out/test/e2e/index.js",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "test": "npm run test-unit"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "18.x",
+    "typescript": "^5.1.6",
+    "glob": "^8.1.0",
+    "mocha": "^10.2.0",
+    "esbuild": "^0.19.2",
+    "@vscode/test-electron": "^2.3.4"
+  }
+}
