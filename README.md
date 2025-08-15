@@ -1,14 +1,11 @@
 # Naldom: Natural Language Domain Markdown
 
 ## Speak, and it is executed.
-## Markdown that thinks.
-## From idea to binary in one sentence.
 
 <!-- Placeholder for future badges -->
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
-![Contributors](https://img.shields.io/github/contributors/naldom-lang/naldom-lang)
-![Discord](https://img.shields.io/badge/discord-join%20chat-7289DA?logo=discord)
+![Contributors](https://img.shields.io/github/contributors/ADanMan/naldom-lang)
 
 ## About Naldom
 
