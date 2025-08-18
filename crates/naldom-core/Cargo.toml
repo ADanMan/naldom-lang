@@ -1,10 +1,10 @@
 [package]
 name = "naldom-core"
-# version = "0.1.0" # Inherited from workspace.package
-# edition = "2021" # Inherited from workspace.package
+version = "0.1.0"
+edition = "2024"
 # authors = ["The Naldom Project Contributors"] # Inherited
 # license = "MIT" # Inherited
-# repository = "https://github.com/naldom-lang/naldom-lang" # Inherited
+# repository = "https://github.com/ADanMan/naldom-lang" # Inherited
 description = "Core compiler components for Naldom: NLD Parser, IntentGraph, Semantic Analysis, Optimization, IR Code Generation."
 
 [dependencies]

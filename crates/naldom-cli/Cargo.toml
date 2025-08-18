@@ -1,8 +1,11 @@
 [package]
 name = "naldom-cli"
+version = "0.1.0"
+edition = "2024"
 # Inherits most fields from workspace.package
 description = "Command-line interface (CLI) for the Naldom language."
 
 [dependencies]
 naldom-core = { path = "../naldom-core" } # Depends on the core compiler
 # Example: clap = { version = "4.0", features = ["derive"] } # For CLI argument parsing
+clap = { version = "4.5.4", features = ["derive"] }
