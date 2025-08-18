@@ -11,3 +11,4 @@ description = "Core compiler components for Naldom: NLD Parser, IntentGraph, Sem
 naldom-ir = { path = "../naldom-ir" } # Dependency on our common IR crate
 # Other core dependencies will go here later
 # Example: anyhow = { workspace = true } # Use workspace dependency if defined
+llm = "0.13.0"
