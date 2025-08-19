@@ -6,5 +6,4 @@ edition = "2024"
 description = "Common Intermediate Representation (IR) and Abstract Syntax Tree (AST) definitions for the Naldom compiler."
 
 [dependencies]
-# No direct dependencies here usually, or only basic utility crates
-# Example: serde = { version = "1.0", features = ["derive"] } # For serialization/deserialization
+serde = { version = "1.0", features = ["derive"] }

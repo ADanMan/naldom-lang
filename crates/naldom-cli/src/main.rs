@@ -2,6 +2,7 @@
 
 use clap::Parser;
 use naldom_core::llm_inference::run_inference;
+use naldom_core::parser::parse_to_intent_graph;
 use std::fs;
 use std::path::PathBuf;
 
@@ -33,6 +34,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n\n--- Full LLM Response ---");
     println!("{}", llm_response);
     println!("--- End of Response ---");
+
+    println!("\n--- Parsing response to IntentGraph ---");
+    let intent_graph = parse_to_intent_graph(&llm_response)?;
+
+    dbg!(&intent_graph);
 
     println!("\n--- CLI finished ---");
 

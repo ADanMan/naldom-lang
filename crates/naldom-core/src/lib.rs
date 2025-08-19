@@ -3,3 +3,4 @@
 //! The core compiler components for the Naldom language.
 
 pub mod llm_inference;
+pub mod parser;
