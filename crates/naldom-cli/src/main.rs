@@ -2,6 +2,7 @@
 
 use clap::Parser;
 use naldom_core::llm_inference::run_inference;
+use naldom_core::lowering::LoweringContext;
 use naldom_core::parser::parse_to_intent_graph;
 use std::fs;
 use std::path::PathBuf;
@@ -13,34 +14,51 @@ struct Args {
     /// Path to the .md or .nldm file to process
     #[arg(required = true)]
     file_path: PathBuf,
+
+    /// Enable trace mode to see compilation stages
+    #[arg(long)]
+    trace: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Parse command-line arguments
+    // Parse command-line arguments
     let args = Args::parse();
 
     println!("Processing file: {:?}", args.file_path);
 
-    // 2. Read the file content into a string
+    // Read the file content into a string
     let file_content = fs::read_to_string(&args.file_path)?;
 
-    // 3. Send the content to the LLM for processing
-    println!("\n--- Sending content to LLM ---");
-
-    // 4. Call the inference function from naldom-core and store the result
+    // === Stage 1: LLM Inference ===
+    println!("\n--- Stage 1: Sending content to LLM ---");
     let llm_response = run_inference(&file_content)?;
+    
+    if args.trace {
+        println!("\n[TRACE] Full LLM Response:");
+        println!("{}", llm_response);
+        println!("[TRACE] --- End of LLM Response ---");
+    }
 
-    // 5. Print the fully collected response at the end
-    println!("\n\n--- Full LLM Response ---");
-    println!("{}", llm_response);
-    println!("--- End of Response ---");
-
-    println!("\n--- Parsing response to IntentGraph ---");
+    // === Stage 2: Parsing to IntentGraph ===
+    println!("\n--- Stage 2: Parsing response to IntentGraph ---");
     let intent_graph = parse_to_intent_graph(&llm_response)?;
+    
+    if args.trace {
+        println!("\n[TRACE] IntentGraph Output:");
+        dbg!(&intent_graph);
+    }
 
-    dbg!(&intent_graph);
+    // === Stage 3: Lowering to High-Level IR ===
+    println!("\n--- Stage 3: Lowering IntentGraph to IR-HL ---");
+    let mut lowering_context = LoweringContext::new();
+    let hl_program = lowering_context.lower(&intent_graph);
 
-    println!("\n--- CLI finished ---");
+    if args.trace {
+        println!("\n[TRACE] IR-HL Output:");
+        dbg!(&hl_program);
+    }
+
+    println!("\n--- Compilation finished ---");
 
     Ok(())
 }

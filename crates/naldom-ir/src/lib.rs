@@ -33,3 +33,50 @@ pub struct CreateArrayParams {
 pub struct SortArrayParams {
     pub order: String,
 }
+
+/// High-Level Intermediate Representation (IR-HL).
+///
+/// This represents the program in a more traditional, abstract way, with
+/// statements, expressions, and variables. It's the bridge between the
+/// user's "intent" and the actual code generation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct HLProgram {
+    pub statements: Vec<HLStatement>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HLStatement {
+    /// Assigns the result of an expression to a variable.
+    /// e.g., `var_0 = create_random_array(10)`
+    Assign {
+        variable: String,
+        expression: HLExpression,
+    },
+    /// Calls a function that does not return a value (e.g., a procedure).
+    /// e.g., `print_array(var_0)`
+    Call {
+        function: String,
+        arguments: Vec<HLExpression>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HLExpression {
+    /// A literal value, like a number or a string.
+    Literal(HLValue),
+    /// A reference to a variable.
+    Variable(String),
+    /// A call to a function that returns a value.
+    /// e.g., `sort_array(var_0)` might return a new, sorted array.
+    FunctionCall {
+        function: String,
+        arguments: Vec<HLExpression>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum HLValue {
+    Integer(i64),
+    String(String),
+    // We can add more types like Float, Bool, etc. later.
+}
