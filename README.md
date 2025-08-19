@@ -35,6 +35,41 @@ Naldom transforms your natural language descriptions into executable code throug
 
 This sophisticated process eliminates the need for traditional, syntax-heavy programming, allowing you to focus on *what* you want to achieve, not *how* to write it in specific code.
 
+## Running the Project (Prototype Phase)
+
+During the prototype phase, Naldom relies on a locally running `llama.cpp` server for LLM inference. This approach was chosen to ensure stability and bypass complex build issues.
+
+**Step 1: Run the `llama.cpp` Server**
+
+You need to clone and build `llama.cpp` separately.
+
+```bash
+# Clone the repository
+git clone https://github.com/ggerganov/llama.cpp.git
+cd llama.cpp
+
+# Build with CMake and Metal support (for Apple Silicon)
+mkdir build && cd build
+cmake .. -DLLAMA_METAL=ON
+cmake --build . --config Release
+```
+
+Once built, run the server from the `build` directory, pointing it to your model file. **Keep this terminal window open.**
+
+```bash
+./bin/server -m /path/to/your/naldom-lang/llm/models/Qwen3-1.7B-Q8_0.gguf --host 127.0.0.1 --port 8080 -c 4096 -ngl 32
+```
+
+**Step 2: Run Naldom**
+
+In a **new terminal window**, navigate to the `naldom-lang` project root and run the compiler:
+
+```bash
+cargo run --package naldom-cli -- program.md
+```
+
+For more detailed instructions, see our [Development Setup Guide](docs/development-setup/llm-server-setup.md).
+
 ## Quick Start (Conceptual Example)
 
 While Naldom is under active development, here's a glimpse of how you'll interact with it. Imagine a file named `my_program.md` containing your Naldom code:

@@ -25,7 +25,8 @@ Before you start, make sure you have the necessary tools installed. Naldom's cor
     git clone https://github.com/ADanMan/naldom-lang.git
     cd naldom-lang
     ```
-3.  **Install Dependencies:**
+3.  **Set up the LLM Server:** Naldom requires a locally running `llama.cpp` server. Please follow the **[LLM Server Setup Guide](docs/development-setup/llm-server-setup.md)** to get it running.
+4.  **Install Dependencies:**
     ```bash
     # This command will build the project and download necessary dependencies
     cargo build

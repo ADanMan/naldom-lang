@@ -8,7 +8,7 @@ edition = "2024"
 description = "Core compiler components for Naldom: NLD Parser, IntentGraph, Semantic Analysis, Optimization, IR Code Generation."
 
 [dependencies]
-naldom-ir = { path = "../naldom-ir" } # Dependency on our common IR crate
-# Other core dependencies will go here later
-# Example: anyhow = { workspace = true } # Use workspace dependency if defined
-llm = "0.13.0"
+naldom-ir = { path = "../naldom-ir" }
+reqwest = { version = "0.12.5", features = ["blocking", "json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
