@@ -2,17 +2,23 @@
 
 use naldom_ir::*;
 
-const FUNC_CREATE_RANDOM_ARRAY: &str = "create_random_array";
-const FUNC_SORT_ARRAY: &str = "sort_array";
-const FUNC_PRINT_ARRAY: &str = "print_array";
-
 /// A stateful struct that handles the lowering process from IntentGraph to IR-HL.
+/// It keeps track of generated variables to chain operations together.
 pub struct LoweringContext {
     variable_counter: u32,
     last_created_variable: Option<String>,
 }
 
+// Implement the `Default` trait as suggested by Clippy.
+// This allows creating a new, empty context with `LoweringContext::default()`.
+impl Default for LoweringContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LoweringContext {
+    /// Creates a new, empty lowering context.
     pub fn new() -> Self {
         LoweringContext {
             variable_counter: 0,
@@ -73,3 +79,8 @@ impl LoweringContext {
         HLProgram { statements }
     }
 }
+
+// Constants for function names to avoid magic strings.
+const FUNC_CREATE_RANDOM_ARRAY: &str = "create_random_array";
+const FUNC_SORT_ARRAY: &str = "sort_array";
+const FUNC_PRINT_ARRAY: &str = "print_array";

@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // === Stage 3: Lowering to High-Level IR ===
     println!("\n--- Stage 3: Lowering IntentGraph to IR-HL ---");
-    let mut lowering_context = LoweringContext::new();
+    let mut lowering_context = LoweringContext::default(); // This is correct because it has fields
     let hl_program = lowering_context.lower(&intent_graph);
 
     if args.trace {
@@ -63,36 +63,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         dbg!(&hl_program);
     }
 
-    // === Stage 4: Generating Python Code ===
+    // === Stage 4: Generating Python code ===
     println!("\n--- Stage 4: Generating Python code ---");
-    let codegen = PythonCodeGenerator::new();
+    // THIS IS THE FIX: For a unit struct, we just use its name to create an instance.
+    let codegen = PythonCodeGenerator;
     let generated_code = codegen.generate(&hl_program);
 
     if args.trace {
         println!("\n[TRACE] Generated Python Code (logic only):");
-        println!("{}\n", generated_code);
+        println!("{}", generated_code);
     }
 
-    // === Stage 5: Assembling and Writing Output File ===
+    // === Stage 5: Assembling and writing to output file ===
     if let Some(output_path) = &args.output {
-        println!("--- Stage 5: Assembling and writing to output file ---");
+        println!("\n--- Stage 5: Assembling and writing output file ---");
 
-        // Embed the Python runtime code directly into the compiler binary.
-        // The path is relative to this source file.
+        // Embed the runtime code directly into the binary
         let runtime_code = include_str!("../../../runtime/python/naldom_runtime.py");
 
-        // Combine the runtime and the generated code into a single script.
+        // Combine the runtime and the generated code
         let final_code = format!(
             "# -- Naldom Python Runtime --\n{}\n\n# --- Generated Code ---\n{}",
             runtime_code, generated_code
         );
 
-        // Write the final script to the specified output file.
+        // Write to the specified file
         fs::write(output_path, final_code)?;
         println!("Successfully wrote Python script to: {:?}", output_path);
     }
 
     println!("\n--- Compilation finished ---");
-
     Ok(())
 }

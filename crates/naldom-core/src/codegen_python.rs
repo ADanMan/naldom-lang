@@ -5,12 +5,22 @@ use naldom_ir::*;
 /// A struct responsible for generating Python code from IR-HL.
 pub struct PythonCodeGenerator;
 
+// We implement the `Default` trait as suggested by Clippy.
+// This is the idiomatic way in Rust to provide a default constructor.
+impl Default for PythonCodeGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PythonCodeGenerator {
+    /// Creates a new instance of the code generator.
     pub fn new() -> Self {
         Self
     }
 
     /// The main entry point for code generation.
+    /// It iterates over all statements in the HLProgram and generates Python code for each.
     pub fn generate(&self, program: &HLProgram) -> String {
         let mut output = Vec::new();
         for statement in &program.statements {
@@ -19,7 +29,7 @@ impl PythonCodeGenerator {
         output.join("\n")
     }
 
-    /// Generates a single Python statement.
+    /// Generates a single Python statement from an HLStatement.
     fn generate_statement(&self, statement: &HLStatement) -> String {
         match statement {
             HLStatement::Assign {
@@ -42,7 +52,7 @@ impl PythonCodeGenerator {
         }
     }
 
-    /// Generates code for an expression.
+    /// Generates a Python expression from an HLExpression.
     fn generate_expression(&self, expression: &HLExpression) -> String {
         match expression {
             HLExpression::Literal(value) => self.generate_value(value),
@@ -61,11 +71,11 @@ impl PythonCodeGenerator {
         }
     }
 
-    /// Generates code for a literal value.
+    /// Generates a Python literal from an HLValue.
     fn generate_value(&self, value: &HLValue) -> String {
         match value {
             HLValue::Integer(i) => i.to_string(),
-            HLValue::String(s) => format!("'{}'", s), // Wrap strings in single quotes
+            HLValue::String(s) => format!("'{}'", s), // Wrap strings in single quotes for Python
         }
     }
 }
