@@ -1,6 +1,6 @@
 // crates/naldom-core/src/codegen_python.rs
 
-use naldom_ir::*;
+use naldom_ir::{HLExpression, HLProgram, HLStatement, HLValue};
 
 /// A struct responsible for generating Python code from IR-HL.
 pub struct PythonCodeGenerator;
@@ -77,5 +77,52 @@ impl PythonCodeGenerator {
             HLValue::Integer(i) => i.to_string(),
             HLValue::String(s) => format!("'{}'", s), // Wrap strings in single quotes for Python
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_python_code() {
+        // 1. Arrange: Create the input IR-HL manually.
+        let hl_program = HLProgram {
+            statements: vec![
+                HLStatement::Assign {
+                    variable: "var_0".to_string(),
+                    expression: HLExpression::FunctionCall {
+                        function: "create_random_array".to_string(),
+                        arguments: vec![HLExpression::Literal(HLValue::Integer(10))],
+                    },
+                },
+                HLStatement::Call {
+                    function: "sort_array".to_string(),
+                    arguments: vec![
+                        HLExpression::Variable("var_0".to_string()),
+                        HLExpression::Literal(HLValue::String("ascending".to_string())),
+                    ],
+                },
+                HLStatement::Call {
+                    function: "print_array".to_string(),
+                    arguments: vec![HLExpression::Variable("var_0".to_string())],
+                },
+            ],
+        };
+
+        let generator = PythonCodeGenerator;
+
+        // 2. Act: Call the function we want to test.
+        let python_code = generator.generate(&hl_program);
+
+        // 3. Assert: Check if the generated string is correct.
+        let expected_code = [
+            "var_0 = create_random_array(10)",
+            "sort_array(var_0, 'ascending')",
+            "print_array(var_0)",
+        ]
+        .join("\n");
+
+        assert_eq!(python_code, expected_code);
     }
 }
