@@ -2,6 +2,9 @@
 
 use serde::{Deserialize, Serialize};
 
+const LLAMA_SERVER_URL: &str = "http://127.0.0.1:8080/completion";
+const DETERMINISTIC_SEED: i64 = 42;
+
 // Structures for serializing the request and deserializing the response.
 #[derive(Serialize)]
 struct CompletionRequest<'a> {
@@ -42,14 +45,14 @@ pub fn run_inference(prompt: &str) -> InferenceResult {
         top_p: 0.0,
         presence_penalty: 1.5,
         repeat_penalty: 1.0,
-        seed: 42,   // Set a fixed seed for deterministic output.
+        seed: DETERMINISTIC_SEED,   // Set a fixed seed for deterministic output.
         stop: vec!["<|im_end|>", "<|endoftext|>"],
     };
 
     // 3. Create a blocking HTTP client and send the request.
     let client = reqwest::blocking::Client::new();
     let response = client
-        .post("http://127.0.0.1:8080/completion")
+        .post(LLAMA_SERVER_URL)
         .json(&request_body)
         .send()?;
 

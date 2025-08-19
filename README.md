@@ -70,9 +70,11 @@ cargo run --package naldom-cli -- program.md
 
 For more detailed instructions, see our [Development Setup Guide](docs/development-setup/llm-server-setup.md).
 
-## Quick Start (Conceptual Example)
+## Quick Start
 
-While Naldom is under active development, here's a glimpse of how you'll interact with it. Imagine a file named `my_program.md` containing your Naldom code:
+Naldom is currently in a working prototype phase. You can compile natural language into an executable Python script.
+
+Imagine a file named `my_program.md`:
 
 ```markdown
 :::naldom
@@ -82,17 +84,24 @@ Print the result.
 :::
 ```
 
-To compile this (once the `naldomc` command-line compiler tool is available):
+To compile this, you first need to run the `llama.cpp` server (see the "Running the Project" section below for details). Then, execute the following command:
 
 ```bash
-naldomc my_program.md --target wasm -o my_program.wasm
+# This will generate a self-contained Python script
+naldomc my_program.md -o my_program.py
 ```
 
-And to run the compiled WebAssembly module:
+And to run it:
 
 ```bash
-naldom-run my_program.wasm
-# Expected output (example): [1.23, 2.56, 3.89, 4.11, 5.05, 6.78, 7.91, 8.22, 9.45, 10.00]
+python3 my_program.py
+# Expected output:
+# Runtime: Creating an array of 10 random numbers...
+# Runtime: Sorting the array in ascending order...
+#
+# --- Naldom Output ---
+#
+# ---------------------
 ```
 
 ## Roadmap Highlights

@@ -2,6 +2,10 @@
 
 use naldom_ir::*;
 
+const FUNC_CREATE_RANDOM_ARRAY: &str = "create_random_array";
+const FUNC_SORT_ARRAY: &str = "sort_array";
+const FUNC_PRINT_ARRAY: &str = "print_array";
+
 /// A stateful struct that handles the lowering process from IntentGraph to IR-HL.
 pub struct LoweringContext {
     variable_counter: u32,
@@ -34,7 +38,7 @@ impl LoweringContext {
                     statements.push(HLStatement::Assign {
                         variable: new_var.clone(),
                         expression: HLExpression::FunctionCall {
-                            function: "create_random_array".to_string(),
+                            function: FUNC_CREATE_RANDOM_ARRAY.to_string(),
                             arguments: vec![HLExpression::Literal(HLValue::Integer(
                                 params.size as i64,
                             ))],
@@ -45,7 +49,7 @@ impl LoweringContext {
                 Intent::SortArray(params) => {
                     if let Some(var_to_sort) = &self.last_created_variable {
                         statements.push(HLStatement::Call {
-                            function: "sort_array".to_string(),
+                            function: FUNC_SORT_ARRAY.to_string(),
                             arguments: vec![
                                 HLExpression::Variable(var_to_sort.clone()),
                                 HLExpression::Literal(HLValue::String(params.order.clone())),
@@ -57,7 +61,7 @@ impl LoweringContext {
                 Intent::PrintArray => {
                     if let Some(var_to_print) = &self.last_created_variable {
                         statements.push(HLStatement::Call {
-                            function: "print_array".to_string(),
+                            function: FUNC_PRINT_ARRAY.to_string(),
                             arguments: vec![HLExpression::Variable(var_to_print.clone())],
                         });
                     }
