@@ -22,10 +22,16 @@ impl PythonCodeGenerator {
     /// Generates a single Python statement.
     fn generate_statement(&self, statement: &HLStatement) -> String {
         match statement {
-            HLStatement::Assign { variable, expression } => {
+            HLStatement::Assign {
+                variable,
+                expression,
+            } => {
                 format!("{} = {}", variable, self.generate_expression(expression))
             }
-            HLStatement::Call { function, arguments } => {
+            HLStatement::Call {
+                function,
+                arguments,
+            } => {
                 let args_str = arguments
                     .iter()
                     .map(|arg| self.generate_expression(arg))
@@ -41,7 +47,10 @@ impl PythonCodeGenerator {
         match expression {
             HLExpression::Literal(value) => self.generate_value(value),
             HLExpression::Variable(name) => name.clone(),
-            HLExpression::FunctionCall { function, arguments } => {
+            HLExpression::FunctionCall {
+                function,
+                arguments,
+            } => {
                 let args_str = arguments
                     .iter()
                     .map(|arg| self.generate_expression(arg))

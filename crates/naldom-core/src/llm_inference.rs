@@ -32,9 +32,15 @@ pub fn run_inference(prompt: &str) -> InferenceResult {
     // 1. Format the prompt for the Qwen3 model's chat template.
     let system_prompt = "You are an expert natural language to JSON compiler. Your task is to convert the user's request into a JSON array of intents. Do not add any explanations or markdown formatting. Only output the raw JSON.";
 
-    let user_prompt = format!("Available intents:\n- CreateArray(size: u32, source: String)\n- SortArray(order: String)\n- PrintArray()\n\nUser request:\n\"{}\"", prompt);
+    let user_prompt = format!(
+        "Available intents:\n- CreateArray(size: u32, source: String)\n- SortArray(order: String)\n- PrintArray()\n\nUser request:\n\"{}\"",
+        prompt
+    );
 
-    let formatted_prompt = format!("<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n", system_prompt, user_prompt);
+    let formatted_prompt = format!(
+        "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
+        system_prompt, user_prompt
+    );
 
     // 2. Create the request body with the new deterministic parameters.
     let request_body = CompletionRequest {
@@ -45,16 +51,13 @@ pub fn run_inference(prompt: &str) -> InferenceResult {
         top_p: 0.0,
         presence_penalty: 1.5,
         repeat_penalty: 1.0,
-        seed: DETERMINISTIC_SEED,   // Set a fixed seed for deterministic output.
+        seed: DETERMINISTIC_SEED, // Set a fixed seed for deterministic output.
         stop: vec!["<|im_end|>", "<|endoftext|>"],
     };
 
     // 3. Create a blocking HTTP client and send the request.
     let client = reqwest::blocking::Client::new();
-    let response = client
-        .post(LLAMA_SERVER_URL)
-        .json(&request_body)
-        .send()?;
+    let response = client.post(LLAMA_SERVER_URL).json(&request_body).send()?;
 
     // 4. Check the response status and parse the JSON.
     if response.status().is_success() {

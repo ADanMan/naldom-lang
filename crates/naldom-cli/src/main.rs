@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // === Stage 1: LLM Inference ===
     println!("\n--- Stage 1: Sending content to LLM ---");
     let llm_response = run_inference(&file_content)?;
-    
+
     if args.trace {
         println!("\n[TRACE] Full LLM Response:");
         println!("{}", llm_response);
@@ -47,7 +47,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // === Stage 2: Parsing to IntentGraph ===
     println!("\n--- Stage 2: Parsing response to IntentGraph ---");
     let intent_graph = parse_to_intent_graph(&llm_response)?;
-    
+
     if args.trace {
         println!("\n[TRACE] IntentGraph Output:");
         dbg!(&intent_graph);
