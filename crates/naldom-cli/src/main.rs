@@ -1,97 +1,93 @@
 // crates/naldom-cli/src/main.rs
 
 use clap::Parser;
-use naldom_core::codegen_python::PythonCodeGenerator;
 use naldom_core::llm_inference::run_inference;
 use naldom_core::lowering::LoweringContext;
+use naldom_core::lowering_hl_to_ll::lower_hl_to_ll;
 use naldom_core::parser::parse_to_intent_graph;
 use std::fs;
 use std::path::PathBuf;
+use std::process::exit;
 
-/// A next-generation programming language based on Natural Language.
+/// The Naldom Compiler CLI
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Path to the .md or .nldm file to process
-    #[arg(required = true)]
+    /// Path to the input .md or .nldm file
     file_path: PathBuf,
 
-    /// Enable trace mode to see compilation stages
+    /// Output file path
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
+    /// Enable trace logging to view intermediate representations
     #[arg(long)]
     trace: bool,
 
-    /// Specify the output file path
-    #[arg(short, long)]
-    output: Option<PathBuf>,
+    /// Compile and run the program immediately
+    #[arg(long)]
+    run: bool,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Parse command-line arguments
+fn main() {
     let args = Args::parse();
 
-    println!("Processing file: {:?}", args.file_path);
+    // 1. Read the source file
+    let source_code = match fs::read_to_string(&args.file_path) {
+        Ok(code) => code,
+        Err(e) => {
+            eprintln!("Error reading file '{}': {}", args.file_path.display(), e);
+            exit(1);
+        }
+    };
 
-    // Read the file content into a string
-    let file_content = fs::read_to_string(&args.file_path)?;
+    // 2. Run LLM Inference to get JSON
+    let llm_response = match run_inference(&source_code) {
+        Ok(response) => response,
+        Err(e) => {
+            eprintln!("Error during LLM inference: {}", e);
+            exit(1);
+        }
+    };
 
-    // === Stage 1: LLM Inference ===
-    println!("\n--- Stage 1: Sending content to LLM ---");
-    let llm_response = run_inference(&file_content)?;
+    // 3. Parse JSON into IntentGraph
+    let intent_graph = match parse_to_intent_graph(&llm_response) {
+        Ok(graph) => graph,
+        Err(e) => {
+            eprintln!("Error parsing LLM response into IntentGraph: {}", e);
+            eprintln!("--- LLM Response ---");
+            eprintln!("{}", llm_response);
+            eprintln!("--------------------");
+            exit(1);
+        }
+    };
 
     if args.trace {
-        println!("\n[TRACE] Full LLM Response:");
-        println!("{}", llm_response);
-        println!("[TRACE] --- End of LLM Response ---");
+        println!("\n========== 1. IntentGraph ==========");
+        println!("{:#?}", intent_graph);
+        println!("==================================\n");
     }
 
-    // === Stage 2: Parsing to IntentGraph ===
-    println!("\n--- Stage 2: Parsing response to IntentGraph ---");
-    let intent_graph = parse_to_intent_graph(&llm_response)?;
-
-    if args.trace {
-        println!("\n[TRACE] IntentGraph Output:");
-        dbg!(&intent_graph);
-    }
-
-    // === Stage 3: Lowering to High-Level IR ===
-    println!("\n--- Stage 3: Lowering IntentGraph to IR-HL ---");
-    let mut lowering_context = LoweringContext::default(); // This is correct because it has fields
+    // 4. Lower IntentGraph to High-Level IR (IR-HL)
+    let mut lowering_context = LoweringContext::new();
     let hl_program = lowering_context.lower(&intent_graph);
 
     if args.trace {
-        println!("\n[TRACE] IR-HL Output:");
-        dbg!(&hl_program);
+        println!("========== 2. High-Level IR (IR-HL) ==========");
+        println!("{:#?}", hl_program);
+        println!("============================================\n");
     }
 
-    // === Stage 4: Generating Python code ===
-    println!("\n--- Stage 4: Generating Python code ---");
-    // THIS IS THE FIX: For a unit struct, we just use its name to create an instance.
-    let codegen = PythonCodeGenerator;
-    let generated_code = codegen.generate(&hl_program);
+    // 5. Lower High-Level IR to Low-Level IR (IR-LL)
+    let ll_program = lower_hl_to_ll(&hl_program);
 
     if args.trace {
-        println!("\n[TRACE] Generated Python Code (logic only):");
-        println!("{}", generated_code);
+        println!("========== 3. Low-Level IR (IR-LL) ==========");
+        println!("{:#?}", ll_program);
+        println!("===========================================\n");
     }
 
-    // === Stage 5: Assembling and writing to output file ===
-    if let Some(output_path) = &args.output {
-        println!("\n--- Stage 5: Assembling and writing output file ---");
-
-        // Embed the runtime code directly into the binary
-        let runtime_code = include_str!("../../../runtime/python/naldom_runtime.py");
-
-        // Combine the runtime and the generated code
-        let final_code = format!(
-            "# -- Naldom Python Runtime --\n{}\n\n# --- Generated Code ---\n{}",
-            runtime_code, generated_code
-        );
-
-        // Write to the specified file
-        fs::write(output_path, final_code)?;
-        println!("Successfully wrote Python script to: {:?}", output_path);
-    }
-
-    println!("\n--- Compilation finished ---");
-    Ok(())
+    // The rest of the pipeline (codegen, etc.) will be modified in future steps.
+    // For now, we stop here.
+    println!("Compiler finished successfully up to IR-LL generation.");
 }
