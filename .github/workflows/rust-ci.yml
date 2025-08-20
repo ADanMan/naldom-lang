@@ -1,3 +1,5 @@
+# .github/workflows/rust-ci.yml
+
 name: Rust CI
 
 on:
@@ -14,10 +16,16 @@ jobs:
     name: Build & Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install LLVM 17
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "17"
 
       - name: Check formatting
         run: cargo fmt --all -- --check
