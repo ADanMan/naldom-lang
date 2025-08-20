@@ -124,20 +124,14 @@ pub enum LLType {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LLInstruction {
     /// Allocates space on the stack. Returns a pointer to the allocated space.
-    Alloc {
-        dest: Register,
-        ty: LLType,
-    },
+    Alloc { dest: Register, ty: LLType },
     /// Loads a value from a memory address (pointer).
     Load {
         dest: Register,
         source_ptr: Register,
     },
     /// Stores a value to a memory address (pointer).
-    Store {
-        value: LLValue,
-        dest_ptr: Register,
-    },
+    Store { value: LLValue, dest_ptr: Register },
     /// Calls a function.
     Call {
         dest: Option<Register>, // `None` for void functions
