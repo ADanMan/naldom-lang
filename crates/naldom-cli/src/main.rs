@@ -18,15 +18,19 @@ struct Args {
     /// Path to the input .md or .nldm file
     file_path: PathBuf,
 
-    /// Output file path
-    #[arg(short, long, default_value = "a.out")]
-    output: PathBuf,
+    /// Output file path. Defaults to 'a.out' for native and 'a.out.wasm' for wasm.
+    #[arg(short, long)]
+    output: Option<PathBuf>,
+
+    /// The compilation target ('native' or 'wasm')
+    #[arg(long, default_value = "native")]
+    target: String,
 
     /// Enable trace logging to view intermediate representations
     #[arg(long)]
     trace: bool,
 
-    /// Compile and run the program immediately
+    /// Compile and run the program immediately (native target only)
     #[arg(long)]
     run: bool,
 
@@ -37,41 +41,41 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+    let output_path = args.output.clone().unwrap_or_else(|| {
+        // Determine default output path based on target
+        if args.target == "wasm" {
+            PathBuf::from("a.out.wasm")
+        } else {
+            PathBuf::from("a.out")
+        }
+    });
 
     // 1. Read the source file
-    let source_code = match fs::read_to_string(&args.file_path) {
-        Ok(code) => code,
-        Err(e) => {
-            eprintln!("Error reading file '{}': {}", args.file_path.display(), e);
-            exit(1);
-        }
-    };
+    let source_code = fs::read_to_string(&args.file_path).unwrap_or_else(|e| {
+        eprintln!("Error reading file '{}': {}", args.file_path.display(), e);
+        exit(1);
+    });
 
     // 2. Run LLM Inference to get JSON
-    let llm_response = match run_inference(&source_code) {
-        Ok(response) => response,
-        Err(e) => {
-            eprintln!("Error during LLM inference: {}", e);
-            exit(1);
-        }
-    };
+    let llm_response = run_inference(&source_code).unwrap_or_else(|e| {
+        eprintln!("Error during LLM inference: {}", e);
+        exit(1);
+    });
 
     // 3. Parse JSON into IntentGraph
-    let intent_graph = match parse_to_intent_graph(&llm_response) {
-        Ok(graph) => graph,
-        Err(e) => {
-            eprintln!("Error parsing LLM response into IntentGraph: {}", e);
-            eprintln!("--- LLM Response ---");
-            eprintln!("{}", llm_response);
-            eprintln!("--------------------");
-            exit(1);
-        }
-    };
-
+    let intent_graph = parse_to_intent_graph(&llm_response).unwrap_or_else(|e| {
+        eprintln!("Error parsing LLM response into IntentGraph: {}", e);
+        eprintln!(
+            "--- LLM Response ---\n{}\n--------------------",
+            llm_response
+        );
+        exit(1);
+    });
     if args.trace {
-        println!("\n========== 1. IntentGraph ==========");
-        println!("{:#?}", intent_graph);
-        println!("==================================\n");
+        println!(
+            "\n========== 1. IntentGraph ==========\n{:#?}\n==================================\n",
+            intent_graph
+        );
     }
 
     // 4. Lower IntentGraph to High-Level IR (IR-HL)
@@ -93,47 +97,63 @@ fn main() {
         );
     }
 
-    // 6. Generate LLVM IR from Low-Level IR
-    let llvm_ir = match generate_llvm_ir(&ll_program) {
-        Ok(ir) => ir,
-        Err(e) => {
-            eprintln!("Error during LLVM IR generation: {}", e);
-            exit(1);
-        }
+    // 6. Generate LLVM IR, now with a target triple
+    let target_triple_string = if args.target == "wasm" {
+        "wasm32-unknown-unknown".to_string()
+    } else {
+        let default_triple = inkwell::targets::TargetMachine::get_default_triple();
+        default_triple
+            .as_str()
+            .to_str()
+            .unwrap_or("unknown-unknown-unknown")
+            .to_string()
     };
 
-    // 7. Handle output based on flags
-    if let Some(emit_format) = args.emit {
+    let llvm_ir = generate_llvm_ir(&ll_program, &target_triple_string).unwrap_or_else(|e| {
+        eprintln!("Error during LLVM IR generation: {}", e);
+        exit(1);
+    });
+
+    // 7. Handle --emit flag
+    if let Some(emit_format) = &args.emit {
         if emit_format == "llvm-ir" {
             println!("{}", llvm_ir);
-            return; // Exit after emitting
+            return;
         } else {
             eprintln!("Unsupported emit format: {}", emit_format);
             exit(1);
         }
     }
 
-    // 8. Compile to native executable
-    if let Err(e) = compile_native(&llvm_ir, &args.output) {
-        eprintln!("Failed to compile native executable: {}", e);
+    // 8. Compile to the specified target
+    let compile_result = if args.target == "wasm" {
+        compile_wasm(&llvm_ir, &output_path)
+    } else {
+        compile_native(&llvm_ir, &output_path)
+    };
+
+    if let Err(e) = compile_result {
+        eprintln!("Failed to compile for target '{}': {}", args.target, e);
         exit(1);
     }
 
-    println!("Successfully compiled to '{}'", args.output.display());
+    println!("Successfully compiled to '{}'", output_path.display());
 
     // 9. Handle --run flag
     if args.run {
-        println!("\nRunning '{}'...\n", args.output.display());
-        let output = Command::new(&args.output)
-            .output()
-            .expect("Failed to execute compiled program");
-
-        // Print stdout and stderr of the child process
-        if !output.stdout.is_empty() {
-            println!("{}", String::from_utf8_lossy(&output.stdout));
-        }
-        if !output.stderr.is_empty() {
-            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        if args.target == "wasm" {
+            println!(
+                "\nCannot run wasm target directly. Use a Wasm runtime like wasmtime or a browser."
+            );
+        } else {
+            println!("\nRunning '{}'...\n", output_path.display());
+            let output = Command::new(&output_path).output().unwrap();
+            if !output.stdout.is_empty() {
+                println!("{}", String::from_utf8_lossy(&output.stdout));
+            }
+            if !output.stderr.is_empty() {
+                eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+            }
         }
     }
 }
@@ -142,49 +162,27 @@ fn main() {
 fn compile_native(llvm_ir: &str, output_path: &Path) -> Result<(), String> {
     let (llc_path, clang_path) = match env::var("LLVM_PREFIX") {
         Ok(prefix) => {
-            println!("Found LLVM_PREFIX: {}", prefix);
             let llvm_path = PathBuf::from(prefix);
             (llvm_path.join("bin/llc"), llvm_path.join("bin/clang"))
         }
-        Err(_) => {
-            println!("LLVM_PREFIX not set. Assuming 'llc' and 'clang' are in PATH.");
-            (PathBuf::from("llc"), PathBuf::from("clang"))
-        }
+        Err(_) => (PathBuf::from("llc"), PathBuf::from("clang")),
     };
 
     let temp_dir = std::env::temp_dir();
-    let stem = output_path
-        .file_stem()
-        .unwrap_or_else(|| std::ffi::OsStr::new("naldom_out"));
-
-    // 1. Write LLVM IR to a temporary file
-    let ll_path = temp_dir.join(format!("{}.ll", stem.to_str().unwrap()));
-    fs::write(&ll_path, llvm_ir)
-        .map_err(|e| format!("Failed to write LLVM IR to temp file: {}", e))?;
-
-    // 2. Compile .ll to .o using `llc`
-    let obj_path = temp_dir.join(format!("{}.o", stem.to_str().unwrap()));
+    let stem = output_path.file_stem().unwrap().to_str().unwrap();
+    let ll_path = temp_dir.join(format!("{}.ll", stem));
+    fs::write(&ll_path, llvm_ir).map_err(|e| e.to_string())?;
+    let obj_path = temp_dir.join(format!("{}.o", stem));
     let llc_output = Command::new(&llc_path)
         .arg("-filetype=obj")
         .arg(&ll_path)
         .arg("-o")
         .arg(&obj_path)
         .output()
-        .map_err(|e| {
-            format!(
-                "Failed to execute llc-17. Is LLVM 17 installed and in your PATH? Error: {}",
-                e
-            )
-        })?;
-
+        .map_err(|e| e.to_string())?;
     if !llc_output.status.success() {
-        return Err(format!(
-            "llc failed:\n{}",
-            String::from_utf8_lossy(&llc_output.stderr)
-        ));
+        return Err(String::from_utf8_lossy(&llc_output.stderr).to_string());
     }
-
-    // 3. Link .o with C runtime using `clang`
     let runtime_path = "runtime/native/naldom_runtime.c";
     let clang_output = Command::new(&clang_path)
         .arg(&obj_path)
@@ -192,18 +190,60 @@ fn compile_native(llvm_ir: &str, output_path: &Path) -> Result<(), String> {
         .arg("-o")
         .arg(output_path)
         .output()
-        .map_err(|e| {
-            format!(
-                "Failed to execute clang. Is it installed and in your PATH? Error: {}",
-                e
-            )
-        })?;
-
+        .map_err(|e| e.to_string())?;
     if !clang_output.status.success() {
-        return Err(format!(
-            "clang failed:\n{}",
-            String::from_utf8_lossy(&clang_output.stderr)
-        ));
+        return Err(String::from_utf8_lossy(&clang_output.stderr).to_string());
+    }
+    let _ = fs::remove_file(&ll_path);
+    let _ = fs::remove_file(&obj_path);
+    Ok(())
+}
+
+/// Orchestrates the WebAssembly build process: LLVM IR -> .o -> .wasm
+fn compile_wasm(llvm_ir: &str, output_path: &Path) -> Result<(), String> {
+    let (llc_path, wasm_ld_path) = match env::var("LLVM_PREFIX") {
+        Ok(prefix) => {
+            let llvm_path = PathBuf::from(prefix);
+            (llvm_path.join("bin/llc"), llvm_path.join("bin/wasm-ld"))
+        }
+        Err(_) => (PathBuf::from("llc"), PathBuf::from("wasm-ld")),
+    };
+
+    let temp_dir = std::env::temp_dir();
+    let stem = output_path.file_stem().unwrap().to_str().unwrap();
+
+    // 1. Write LLVM IR to a temporary file
+    let ll_path = temp_dir.join(format!("{}.ll", stem));
+    fs::write(&ll_path, llvm_ir).map_err(|e| e.to_string())?;
+
+    // 2. Compile .ll to .o using `llc` with wasm32 target
+    let obj_path = temp_dir.join(format!("{}.o", stem));
+    let llc_output = Command::new(&llc_path)
+        .arg("-march=wasm32") // Specify the architecture
+        .arg("-filetype=obj")
+        .arg(&ll_path)
+        .arg("-o")
+        .arg(&obj_path)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !llc_output.status.success() {
+        return Err(String::from_utf8_lossy(&llc_output.stderr).to_string());
+    }
+
+    // 3. Link .o into a .wasm module using `wasm-ld`
+    let wasm_ld_output = Command::new(&wasm_ld_path)
+        .arg(&obj_path)
+        .arg("-o")
+        .arg(output_path)
+        .arg("--no-entry") // We don't have a traditional `_start` function
+        .arg("--export-all") // Export all functions (like `main`) to the JS host
+        .arg("--allow-undefined") // Allow undefined symbols (our JS runtime functions)
+        .output()
+        .map_err(|e| e.to_string())?;
+
+    if !wasm_ld_output.status.success() {
+        return Err(String::from_utf8_lossy(&wasm_ld_output.stderr).to_string());
     }
 
     // 4. Clean up temporary files

@@ -3,6 +3,7 @@
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::Module;
+use inkwell::targets::TargetTriple;
 use inkwell::types::{BasicMetadataTypeEnum, BasicType, BasicTypeEnum};
 use inkwell::values::{BasicMetadataValueEnum, BasicValueEnum, FunctionValue, PointerValue};
 use naldom_ir::{
@@ -11,7 +12,6 @@ use naldom_ir::{
 };
 use std::collections::HashMap;
 
-/// The context for LLVM code generation.
 pub struct CodeGenContext<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
@@ -22,8 +22,9 @@ pub struct CodeGenContext<'ctx> {
 }
 
 impl<'ctx> CodeGenContext<'ctx> {
-    fn new(context: &'ctx Context) -> Self {
-        let module = context.create_module("naldom_module");
+    // CORRECTED: The function now accepts the module_name as an argument.
+    fn new(context: &'ctx Context, module_name: &str) -> Self {
+        let module = context.create_module(module_name);
         let builder = context.create_builder();
         CodeGenContext {
             context,
@@ -150,7 +151,7 @@ impl<'ctx> CodeGenContext<'ctx> {
                 _ => LLType::I64,
             },
             BasicTypeEnum::FloatType(_) => LLType::F64,
-            BasicTypeEnum::PointerType(_) => LLType::Pointer(Box::new(LLType::F64)), // Assuming ptr to f64
+            BasicTypeEnum::PointerType(_) => LLType::Pointer(Box::new(LLType::F64)),
             _ => unimplemented!("This inkwell type cannot be converted back to Naldom type yet"),
         }
     }
@@ -202,9 +203,12 @@ impl<'ctx> CodeGenContext<'ctx> {
     }
 }
 
-pub fn generate_llvm_ir(ll_program: &LLProgram) -> Result<String, String> {
+pub fn generate_llvm_ir(ll_program: &LLProgram, target_triple: &str) -> Result<String, String> {
     let context = Context::create();
-    let mut codegen_context = CodeGenContext::new(&context);
+    let mut codegen_context = CodeGenContext::new(&context, "naldom_module");
+
+    let triple = TargetTriple::create(target_triple);
+    codegen_context.module.set_triple(&triple);
 
     for function in &ll_program.functions {
         codegen_context.codegen_function(function);
