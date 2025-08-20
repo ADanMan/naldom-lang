@@ -6,9 +6,10 @@ use naldom_core::llm_inference::run_inference;
 use naldom_core::lowering::LoweringContext;
 use naldom_core::lowering_hl_to_ll::lower_hl_to_ll;
 use naldom_core::parser::parse_to_intent_graph;
+use std::env;
 use std::fs;
-use std::path::PathBuf;
-use std::process::exit;
+use std::path::{Path, PathBuf};
+use std::process::{Command, exit};
 
 /// The Naldom Compiler CLI
 #[derive(Parser, Debug)]
@@ -18,8 +19,8 @@ struct Args {
     file_path: PathBuf,
 
     /// Output file path
-    #[arg(short, long)]
-    output: Option<PathBuf>,
+    #[arg(short, long, default_value = "a.out")]
+    output: PathBuf,
 
     /// Enable trace logging to view intermediate representations
     #[arg(long)]
@@ -112,6 +113,102 @@ fn main() {
         }
     }
 
-    // The rest of the pipeline (compiling LLVM IR to an executable) will be implemented next.
-    println!("Compiler finished successfully. LLVM IR generated (use --emit=llvm-ir to view).");
+    // 8. Compile to native executable
+    if let Err(e) = compile_native(&llvm_ir, &args.output) {
+        eprintln!("Failed to compile native executable: {}", e);
+        exit(1);
+    }
+
+    println!("Successfully compiled to '{}'", args.output.display());
+
+    // 9. Handle --run flag
+    if args.run {
+        println!("\nRunning '{}'...\n", args.output.display());
+        let output = Command::new(&args.output)
+            .output()
+            .expect("Failed to execute compiled program");
+
+        // Print stdout and stderr of the child process
+        if !output.stdout.is_empty() {
+            println!("{}", String::from_utf8_lossy(&output.stdout));
+        }
+        if !output.stderr.is_empty() {
+            eprintln!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+    }
+}
+
+/// Orchestrates the native build process: LLVM IR -> .o -> executable
+fn compile_native(llvm_ir: &str, output_path: &Path) -> Result<(), String> {
+    let (llc_path, clang_path) = match env::var("LLVM_PREFIX") {
+        Ok(prefix) => {
+            println!("Found LLVM_PREFIX: {}", prefix);
+            let llvm_path = PathBuf::from(prefix);
+            (llvm_path.join("bin/llc"), llvm_path.join("bin/clang"))
+        }
+        Err(_) => {
+            println!("LLVM_PREFIX not set. Assuming 'llc' and 'clang' are in PATH.");
+            (PathBuf::from("llc"), PathBuf::from("clang"))
+        }
+    };
+
+    let temp_dir = std::env::temp_dir();
+    let stem = output_path
+        .file_stem()
+        .unwrap_or_else(|| std::ffi::OsStr::new("naldom_out"));
+
+    // 1. Write LLVM IR to a temporary file
+    let ll_path = temp_dir.join(format!("{}.ll", stem.to_str().unwrap()));
+    fs::write(&ll_path, llvm_ir)
+        .map_err(|e| format!("Failed to write LLVM IR to temp file: {}", e))?;
+
+    // 2. Compile .ll to .o using `llc`
+    let obj_path = temp_dir.join(format!("{}.o", stem.to_str().unwrap()));
+    let llc_output = Command::new(&llc_path)
+        .arg("-filetype=obj")
+        .arg(&ll_path)
+        .arg("-o")
+        .arg(&obj_path)
+        .output()
+        .map_err(|e| {
+            format!(
+                "Failed to execute llc-17. Is LLVM 17 installed and in your PATH? Error: {}",
+                e
+            )
+        })?;
+
+    if !llc_output.status.success() {
+        return Err(format!(
+            "llc failed:\n{}",
+            String::from_utf8_lossy(&llc_output.stderr)
+        ));
+    }
+
+    // 3. Link .o with C runtime using `clang`
+    let runtime_path = "runtime/native/naldom_runtime.c";
+    let clang_output = Command::new(&clang_path)
+        .arg(&obj_path)
+        .arg(runtime_path)
+        .arg("-o")
+        .arg(output_path)
+        .output()
+        .map_err(|e| {
+            format!(
+                "Failed to execute clang. Is it installed and in your PATH? Error: {}",
+                e
+            )
+        })?;
+
+    if !clang_output.status.success() {
+        return Err(format!(
+            "clang failed:\n{}",
+            String::from_utf8_lossy(&clang_output.stderr)
+        ));
+    }
+
+    // 4. Clean up temporary files
+    let _ = fs::remove_file(&ll_path);
+    let _ = fs::remove_file(&obj_path);
+
+    Ok(())
 }
