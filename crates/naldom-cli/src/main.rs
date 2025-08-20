@@ -1,6 +1,7 @@
 // crates/naldom-cli/src/main.rs
 
 use clap::Parser;
+use naldom_core::codegen_llvm::generate_llvm_ir;
 use naldom_core::llm_inference::run_inference;
 use naldom_core::lowering::LoweringContext;
 use naldom_core::lowering_hl_to_ll::lower_hl_to_ll;
@@ -27,6 +28,10 @@ struct Args {
     /// Compile and run the program immediately
     #[arg(long)]
     run: bool,
+
+    /// Emit a specific intermediate representation
+    #[arg(long, value_name = "FORMAT")]
+    emit: Option<String>,
 }
 
 fn main() {
@@ -71,23 +76,42 @@ fn main() {
     // 4. Lower IntentGraph to High-Level IR (IR-HL)
     let mut lowering_context = LoweringContext::new();
     let hl_program = lowering_context.lower(&intent_graph);
-
     if args.trace {
-        println!("========== 2. High-Level IR (IR-HL) ==========");
-        println!("{:#?}", hl_program);
-        println!("============================================\n");
+        println!(
+            "========== 2. High-Level IR (IR-HL) ==========\n{:#?}\n============================================\n",
+            hl_program
+        );
     }
 
     // 5. Lower High-Level IR to Low-Level IR (IR-LL)
     let ll_program = lower_hl_to_ll(&hl_program);
-
     if args.trace {
-        println!("========== 3. Low-Level IR (IR-LL) ==========");
-        println!("{:#?}", ll_program);
-        println!("===========================================\n");
+        println!(
+            "========== 3. Low-Level IR (IR-LL) ==========\n{:#?}\n===========================================\n",
+            ll_program
+        );
     }
 
-    // The rest of the pipeline (codegen, etc.) will be modified in future steps.
-    // For now, we stop here.
-    println!("Compiler finished successfully up to IR-LL generation.");
+    // 6. Generate LLVM IR from Low-Level IR
+    let llvm_ir = match generate_llvm_ir(&ll_program) {
+        Ok(ir) => ir,
+        Err(e) => {
+            eprintln!("Error during LLVM IR generation: {}", e);
+            exit(1);
+        }
+    };
+
+    // 7. Handle output based on flags
+    if let Some(emit_format) = args.emit {
+        if emit_format == "llvm-ir" {
+            println!("{}", llvm_ir);
+            return; // Exit after emitting
+        } else {
+            eprintln!("Unsupported emit format: {}", emit_format);
+            exit(1);
+        }
+    }
+
+    // The rest of the pipeline (compiling LLVM IR to an executable) will be implemented next.
+    println!("Compiler finished successfully. LLVM IR generated (use --emit=llvm-ir to view).");
 }
