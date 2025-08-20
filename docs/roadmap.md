@@ -9,15 +9,15 @@ gantt
 
     section Phase 1: Prototype (3 months)
     GitHub Setup & Init                  :done, 2025-08-15, 7d
-    NLD Parser (LLM Integration)         :active, 2025-08-22, 30d
-    Basic IntentGraph Definition         :2025-09-22, 15d
-    Semantic Analyzer (Basic)            :2025-10-07, 15d
-    IR-HL Generation                     :2025-10-22, 15d
-    Python CodeGen & Runtime             :2025-11-06, 30d
-    Tracing & Initial Unit Tests         :2025-12-06, 15d
+    NLD Parser (LLM Integration)         :done, 2025-08-22, 30d
+    Basic IntentGraph Definition         :done, 2025-09-22, 15d
+    Semantic Analyzer (Basic)            :done, 2025-10-07, 15d
+    IR-HL Generation                     :done, 2025-10-22, 15d
+    Python CodeGen & Runtime             :done, 2025-11-06, 30d
+    Tracing & Initial Unit Tests         :done, 2025-12-06, 15d
 
     section Phase 2: Core Compiler & Multi-Target (6 months)
-    IR-LL Development                    :2025-12-21, 45d
+    IR-LL Development                    :crit, active, 2025-12-21, 45d
     LLVM IR Generation                   :2026-02-04, 45d
     WebAssembly Backend                  :2026-03-21, 30d
     Enhanced Semantic Analyzer           :2026-04-20, 30d
@@ -34,4 +34,4 @@ gantt
     Package Manager (naldom-pkg)         :2027-06-01, 30d
     Safety & Reverse Traceability        :2027-07-01, 30d
     Comprehensive End-to-End Testing     :2027-08-01, 30d
-    ```
+```
