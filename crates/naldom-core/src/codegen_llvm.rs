@@ -12,24 +12,16 @@ use naldom_ir::{
 use std::collections::HashMap;
 
 /// The context for LLVM code generation.
-/// It holds all the necessary LLVM objects and state for the compilation of one module.
 pub struct CodeGenContext<'ctx> {
     context: &'ctx Context,
     builder: Builder<'ctx>,
     module: Module<'ctx>,
-
-    /// Maps our virtual registers to a tuple containing:
-    /// 1. The LLVM pointer (`alloca`) for the register's storage.
-    /// 2. Our own `LLType` to remember what type was allocated.
     registers: HashMap<Register, (PointerValue<'ctx>, LLType)>,
-
-    /// The current function being built.
-    #[allow(dead_code)] // This will be used later for more complex scenarios.
+    #[allow(dead_code)]
     current_function: Option<FunctionValue<'ctx>>,
 }
 
 impl<'ctx> CodeGenContext<'ctx> {
-    /// Creates a new CodeGenContext.
     fn new(context: &'ctx Context) -> Self {
         let module = context.create_module("naldom_module");
         let builder = context.create_builder();
@@ -42,7 +34,6 @@ impl<'ctx> CodeGenContext<'ctx> {
         }
     }
 
-    /// The main entry point for code generation for a single function.
     fn codegen_function(&mut self, func: &LLFunction) {
         let fn_type = self.to_llvm_fn_type(&func.parameters, &func.return_type);
         let function = self.module.add_function(&func.name, fn_type, None);
@@ -56,7 +47,6 @@ impl<'ctx> CodeGenContext<'ctx> {
         }
     }
 
-    /// Generates code for a single basic block.
     fn codegen_basic_block(&mut self, block: &BasicBlock) {
         for instr in &block.instructions {
             self.codegen_instruction(instr);
@@ -64,7 +54,6 @@ impl<'ctx> CodeGenContext<'ctx> {
         self.codegen_terminator(&block.terminator);
     }
 
-    /// Generates code for a single instruction.
     fn codegen_instruction(&mut self, instr: &LLInstruction) {
         match instr {
             LLInstruction::Alloc { dest, ty } => {
@@ -73,7 +62,6 @@ impl<'ctx> CodeGenContext<'ctx> {
                     .builder
                     .build_alloca(llvm_type, &format!("reg_{}", dest.0))
                     .unwrap();
-                // Store both the pointer and our original type for later lookup.
                 self.registers.insert(*dest, (alloca, ty.clone()));
             }
             LLInstruction::Call {
@@ -99,13 +87,11 @@ impl<'ctx> CodeGenContext<'ctx> {
                         .expect("Call did not return a value");
                     let return_type = return_value.get_type();
 
-                    // Store the return value in a new allocation for the destination register.
                     let dest_ptr = self
                         .builder
                         .build_alloca(return_type, &format!("reg_{}", dest_reg.0))
                         .unwrap();
-                    // We need to figure out our own LLType from the inkwell type. This is a simplification.
-                    let naldom_return_type = LLType::F64; // Assuming F64 for now.
+                    let naldom_return_type = self.inkwell_type_to_naldom_type(return_type);
                     self.registers
                         .insert(*dest_reg, (dest_ptr, naldom_return_type));
                     self.builder.build_store(dest_ptr, return_value).unwrap();
@@ -115,7 +101,6 @@ impl<'ctx> CodeGenContext<'ctx> {
         }
     }
 
-    /// Generates code for a terminator instruction.
     fn codegen_terminator(&mut self, term: &Terminator) {
         match term {
             Terminator::Return(Some(val)) => {
@@ -128,7 +113,6 @@ impl<'ctx> CodeGenContext<'ctx> {
         }
     }
 
-    /// Converts our `NaldomValue` into an `inkwell::values::BasicValueEnum`.
     fn codegen_value(&self, val: &NaldomValue) -> BasicValueEnum<'ctx> {
         match val {
             NaldomValue::Constant(c) => match c {
@@ -137,7 +121,6 @@ impl<'ctx> CodeGenContext<'ctx> {
                 LLConstant::F64(f) => self.context.f64_type().const_float(*f).into(),
             },
             NaldomValue::Register(reg) => {
-                // To use a register's value, we must load it from its stack allocation.
                 let (ptr, ty) = self.registers.get(reg).expect("Register not allocated");
                 let llvm_type = self.to_llvm_type(ty);
                 self.builder
@@ -147,13 +130,12 @@ impl<'ctx> CodeGenContext<'ctx> {
         }
     }
 
-    /// Helper to convert our `LLType` to an `inkwell` type.
     fn to_llvm_type(&self, ty: &LLType) -> BasicTypeEnum<'ctx> {
         match ty {
             LLType::I32 => self.context.i32_type().into(),
             LLType::I64 => self.context.i64_type().into(),
             LLType::F64 => self.context.f64_type().into(),
-            LLType::Pointer(_inner) => self
+            LLType::Pointer(_) => self
                 .context
                 .ptr_type(inkwell::AddressSpace::default())
                 .into(),
@@ -161,7 +143,18 @@ impl<'ctx> CodeGenContext<'ctx> {
         }
     }
 
-    /// Helper to build an `inkwell` function type from our types.
+    fn inkwell_type_to_naldom_type(&self, ty: BasicTypeEnum) -> LLType {
+        match ty {
+            BasicTypeEnum::IntType(i) => match i.get_bit_width() {
+                32 => LLType::I32,
+                _ => LLType::I64,
+            },
+            BasicTypeEnum::FloatType(_) => LLType::F64,
+            BasicTypeEnum::PointerType(_) => LLType::Pointer(Box::new(LLType::F64)), // Assuming ptr to f64
+            _ => unimplemented!("This inkwell type cannot be converted back to Naldom type yet"),
+        }
+    }
+
     fn to_llvm_fn_type(
         &self,
         params: &[(LLType, Register)],
@@ -178,7 +171,6 @@ impl<'ctx> CodeGenContext<'ctx> {
         }
     }
 
-    /// Creates a placeholder function declaration if one is not found.
     fn declare_placeholder_function(
         &self,
         name: &str,
@@ -187,20 +179,22 @@ impl<'ctx> CodeGenContext<'ctx> {
     ) -> FunctionValue<'ctx> {
         let arg_types: Vec<BasicMetadataTypeEnum> = args
             .iter()
-            .map(|arg| {
-                match arg {
-                    NaldomValue::Constant(LLConstant::I64(_)) => self.context.i64_type().into(),
-                    NaldomValue::Register(reg) => {
-                        let (_, ty) = self.registers.get(reg).unwrap();
-                        self.to_llvm_type(ty).into()
-                    }
-                    _ => self.context.i64_type().into(), // Default fallback
+            .map(|arg| match arg {
+                NaldomValue::Constant(LLConstant::I64(_)) => self.context.i64_type().into(),
+                NaldomValue::Register(reg) => {
+                    let (_, ty) = self
+                        .registers
+                        .get(reg)
+                        .expect("Register not found during function declaration");
+                    self.to_llvm_type(ty).into()
                 }
+                _ => self.context.i64_type().into(),
             })
             .collect();
 
         let fn_type = if has_return {
-            self.context.f64_type().fn_type(&arg_types, false) // Assuming f64 return
+            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
+            ptr_type.fn_type(&arg_types, false)
         } else {
             self.context.void_type().fn_type(&arg_types, false)
         };
@@ -208,7 +202,6 @@ impl<'ctx> CodeGenContext<'ctx> {
     }
 }
 
-/// The main entry point for generating LLVM IR from an LLProgram.
 pub fn generate_llvm_ir(ll_program: &LLProgram) -> Result<String, String> {
     let context = Context::create();
     let mut codegen_context = CodeGenContext::new(&context);
@@ -217,7 +210,6 @@ pub fn generate_llvm_ir(ll_program: &LLProgram) -> Result<String, String> {
         codegen_context.codegen_function(function);
     }
 
-    // Verify the generated module for correctness.
     if let Err(e) = codegen_context.module.verify() {
         let ir_string = codegen_context.module.print_to_string().to_string();
         return Err(format!(
