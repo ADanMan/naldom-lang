@@ -13,7 +13,7 @@ use serde::Deserialize;
 ///   is located in a field named "parameters".
 /// - `#[serde(rename_all = "PascalCase")]`: Automatically converts JSON's "PascalCase" names
 ///   (like "CreateArray") to Rust's PascalCase enum variants (like `CreateArray`).
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "intent", content = "parameters", rename_all = "PascalCase")]
 pub enum Intent {
     CreateArray(CreateArrayParams),
@@ -22,14 +22,14 @@ pub enum Intent {
 }
 
 /// Parameters for the `CreateArray` intent.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct CreateArrayParams {
     pub size: u32,
     pub source: String,
 }
 
 /// Parameters for the `SortArray` intent.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct SortArrayParams {
     pub order: String,
 }

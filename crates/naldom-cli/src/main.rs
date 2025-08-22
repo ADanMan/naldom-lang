@@ -6,6 +6,7 @@ use naldom_core::llm_inference::run_inference;
 use naldom_core::lowering::LoweringContext;
 use naldom_core::lowering_hl_to_ll::lower_hl_to_ll;
 use naldom_core::parser::parse_to_intent_graph;
+use naldom_core::semantic_analyzer::SemanticAnalyzer;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -75,6 +76,24 @@ fn main() {
         println!(
             "\n========== 1. IntentGraph ==========\n{:#?}\n==================================\n",
             intent_graph
+        );
+    }
+
+    // 3.5: Semantic Analysis (placeholder call)
+    let mut analyzer = SemanticAnalyzer::new();
+    // We need to add `Clone` to the Intent enums for this to work.
+    // We will do that in the next step. For now, let's just call it.
+    let validated_intent_graph = match analyzer.analyze(&intent_graph) {
+        Ok(graph) => graph,
+        Err(e) => {
+            eprintln!("Compilation failed: {}", e);
+            exit(1);
+        }
+    };
+    if args.trace {
+        println!(
+            "========== 1.5. IntentGraph (Validated) ==========\n{:#?}\n==============================================\n",
+            validated_intent_graph
         );
     }
 
