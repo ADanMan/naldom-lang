@@ -9,3 +9,9 @@ description = "Command-line interface (CLI) for the Naldom language."
 naldom-core = { path = "../naldom-core" }
 clap = { version = "4.5.4", features = ["derive"] }
 inkwell = { version = "0.6.0", default-features = false, features = ["llvm17-0", "target-x86", "target-webassembly"] }
+
+# Dependencies used only for running tests and benchmarks.
+[dev-dependencies]
+assert_cmd = "2.0"  # For testing command-line applications
+assert_fs = "1.0"   # For filesystem fixtures and assertions
+predicates = "3.0"  # For writing expressive assertions
