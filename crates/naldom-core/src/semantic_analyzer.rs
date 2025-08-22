@@ -1,6 +1,6 @@
 // crates/naldom-core/src/semantic_analyzer.rs
 
-use naldom_ir::Intent;
+use naldom_ir::{CreateArrayParams, Intent, SortArrayParams};
 use std::collections::HashMap;
 
 /// Represents the types known to our type system.
@@ -19,7 +19,6 @@ pub struct Symbol {
 /// The Symbol Table stores all symbols declared in a given scope.
 #[derive(Default)]
 pub struct SymbolTable {
-    #[allow(dead_code)]
     symbols: HashMap<String, Symbol>,
 }
 
@@ -27,14 +26,24 @@ impl SymbolTable {
     pub fn new() -> Self {
         Self::default()
     }
+
+    /// Adds a new symbol to the table.
+    pub fn insert(&mut self, symbol: Symbol) {
+        self.symbols.insert(symbol.name.clone(), symbol);
+    }
+
+    /// Retrieves a symbol by name.
+    pub fn get(&self, name: &str) -> Option<&Symbol> {
+        self.symbols.get(name)
+    }
 }
 
-/// The Semantic Analyzer is responsible for walking the IntentGraph and
-/// validating its logical correctness.
+/// The Semantic Analyzer walks the IntentGraph and validates it.
 #[derive(Default)]
 pub struct SemanticAnalyzer {
-    #[allow(dead_code)]
     symbol_table: SymbolTable,
+    variable_counter: u32,
+    last_created_variable: Option<String>,
 }
 
 impl SemanticAnalyzer {
@@ -42,8 +51,77 @@ impl SemanticAnalyzer {
         Self::default()
     }
 
+    /// Generates a new, unique variable name for internal tracking.
+    fn new_variable_name(&mut self) -> String {
+        let name = format!("var_{}", self.variable_counter);
+        self.variable_counter += 1;
+        name
+    }
+
     /// The main entry point for semantic analysis.
     pub fn analyze(&mut self, intent_graph: &[Intent]) -> Result<Vec<Intent>, String> {
-        Ok(intent_graph.to_vec())
+        let validated_graph = intent_graph.to_vec();
+
+        for intent in intent_graph {
+            self.analyze_intent(intent)?;
+        }
+
+        Ok(validated_graph)
+    }
+
+    /// Analyzes a single intent.
+    fn analyze_intent(&mut self, intent: &Intent) -> Result<(), String> {
+        match intent {
+            Intent::CreateArray(params) => self.analyze_create_array(params),
+            Intent::SortArray(params) => self.analyze_sort_array(params),
+            Intent::PrintArray => self.analyze_print_array(),
+        }
+    }
+
+    fn analyze_create_array(&mut self, _params: &CreateArrayParams) -> Result<(), String> {
+        let new_var_name = self.new_variable_name();
+        let symbol = Symbol {
+            name: new_var_name.clone(),
+            symbol_type: SymbolType::Array,
+        };
+        self.symbol_table.insert(symbol);
+        self.last_created_variable = Some(new_var_name);
+        Ok(())
+    }
+
+    fn analyze_sort_array(&mut self, _params: &SortArrayParams) -> Result<(), String> {
+        // Check 1: Is there any variable to sort?
+        let var_name = self.last_created_variable.as_ref().ok_or_else(|| {
+            "Semantic Error: Attempted to sort, but no array has been created yet.".to_string()
+        })?;
+
+        // Check 2: Is the variable of the correct type?
+        let symbol = self.symbol_table.get(var_name).unwrap(); // Should always exist if var_name exists
+        if symbol.symbol_type != SymbolType::Array {
+            return Err(format!(
+                "Semantic Error: Attempted to sort '{}', which is not an Array. It has type {:?}.",
+                var_name, symbol.symbol_type
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn analyze_print_array(&mut self) -> Result<(), String> {
+        // Check 1: Is there any variable to print?
+        let var_name = self.last_created_variable.as_ref().ok_or_else(|| {
+            "Semantic Error: Attempted to print, but nothing has been created yet.".to_string()
+        })?;
+
+        // Check 2: Is the variable of a printable type?
+        let symbol = self.symbol_table.get(var_name).unwrap();
+        if symbol.symbol_type != SymbolType::Array {
+            return Err(format!(
+                "Semantic Error: Attempted to print '{}', which is not an Array. It has type {:?}.",
+                var_name, symbol.symbol_type
+            ));
+        }
+
+        Ok(())
     }
 }
