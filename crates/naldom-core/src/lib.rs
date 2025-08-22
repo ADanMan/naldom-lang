@@ -8,3 +8,4 @@ pub mod llm_inference;
 pub mod lowering;
 pub mod lowering_hl_to_ll;
 pub mod parser;
+pub mod semantic_analyzer;

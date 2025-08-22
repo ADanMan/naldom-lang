@@ -1,73 +1,109 @@
 // crates/naldom-core/src/llm_inference.rs
 
-use serde::{Deserialize, Serialize};
+use reqwest::blocking::Client;
+use serde::Serialize;
+use serde_json::Value;
 
-const LLAMA_SERVER_URL: &str = "http://127.0.0.1:8080/completion";
-const DETERMINISTIC_SEED: i64 = 42;
+const LLM_SERVER_URL: &str = "http://127.0.0.1:8080/completion";
 
-// Structures for serializing the request and deserializing the response.
 #[derive(Serialize)]
-struct CompletionRequest<'a> {
+struct LlmRequest<'a> {
     prompt: &'a str,
     n_predict: i32,
     temperature: f32,
-    top_k: i32,
-    top_p: f32,
-    presence_penalty: f32,
-    repeat_penalty: f32,
-    seed: i64,
-    stop: Vec<&'static str>,
+    stop: Vec<&'a str>,
+    grammar: &'a str,
 }
 
-#[derive(Deserialize)]
-struct CompletionResponse {
-    content: String,
-}
+/// Runs inference against the local llama.cpp server.
+pub fn run_inference(user_prompt: &str) -> Result<String, String> {
+    // NEW: Structured prompt based on prompt engineering best practices.
+    let system_prompt = r#"
+CONTEXT:
+You are an expert Frontend Compiler. Your task is to analyze the user's request, which is written in a natural language called Naldom, and transform it into a strictly structured JSON array of "intents". This JSON is the Abstract Syntax Tree (AST) for the Naldom language.
 
-pub type InferenceResult = Result<String, Box<dyn std::error::Error>>;
+TASK:
+1. Analyze the user's request.
+2. Identify the sequence of operations the user wants to perform.
+3. For each operation, map it to one of the "AVAILABLE INTENTS".
+4. Construct a JSON object for each intent.
+5. Combine these objects into a single JSON array.
+6. Respond with ONLY the raw JSON array.
 
-pub fn run_inference(prompt: &str) -> InferenceResult {
-    println!("Sending HTTP request to llama.cpp server...");
+IMPORTANT:
+- You MUST respond with ONLY the JSON array. Do not include any extra text, explanations, markdown formatting, or "think" blocks.
+- If a parameter is not specified by the user, you MUST use a sensible default value as specified below.
+- You MUST NOT generate an intent that operates on a variable before it has been created. For example, a "SortArray" intent cannot be the first intent in the array unless a variable is already in context (which is not supported yet).
 
-    // 1. Format the prompt for the Qwen3 model's chat template.
-    let system_prompt = "You are an expert natural language to JSON compiler. Your task is to convert the user's request into a JSON array of intents. Do not add any explanations or markdown formatting. Only output the raw JSON.";
+DEFAULT VALUES:
+- For the "SortArray" intent, if the order is not specified, you MUST default to "ascending".
 
-    let user_prompt = format!(
-        "Available intents:\n- CreateArray(size: u32, source: String)\n- SortArray(order: String)\n- PrintArray()\n\nUser request:\n\"{}\"",
-        prompt
-    );
+AVAILABLE INTENTS (JSON Schema):
+[
+    {
+        "intent": "CreateArray",
+        "parameters": { "size": "u32", "source": "String" }
+    },
+    {
+        "intent": "SortArray",
+        "parameters": { "order": "String" }
+    },
+    {
+        "intent": "PrintArray" // This intent has no parameters.
+    }
+]
 
-    let formatted_prompt = format!(
-        "<|im_start|>system\n{}<|im_end|>\n<|im_start|>user\n{}<|im_end|>\n<|im_start|>assistant\n",
-        system_prompt, user_prompt
-    );
+USER REQUEST:
+"#;
 
-    // 2. Create the request body with the new deterministic parameters.
-    let request_body = CompletionRequest {
-        prompt: &formatted_prompt,
-        n_predict: 1024,
-        temperature: 0.3,
-        top_k: 20,
-        top_p: 0.0,
-        presence_penalty: 1.5,
-        repeat_penalty: 1.0,
-        seed: DETERMINISTIC_SEED, // Set a fixed seed for deterministic output.
-        stop: vec!["<|im_end|>", "<|endoftext|>"],
+    let full_prompt = format!("{}{}", system_prompt, user_prompt);
+
+    // This grammar ensures the LLM *must* produce JSON that fits our structure.
+    let grammar = r#"
+root   ::= "[" ws intent ("," ws intent)* ws "]"
+intent ::= "{" ws "\"intent\"" ws ":" ws "\"" intent-name "\"" ("," ws "\"parameters\"" ws ":" ws params)? ws "}"
+params ::= "{" ws param ("," ws param)* ws "}"
+param  ::= "\"" string "\"" ws ":" ws value
+value  ::= string-literal | number
+string-literal ::= "\"" string "\""
+
+intent-name ::= "CreateArray" | "SortArray" | "PrintArray"
+string ::= ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))*
+number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
+ws ::= [ \t\n\r]*
+"#;
+
+    let request_body = LlmRequest {
+        prompt: &full_prompt,
+        n_predict: 512,
+        temperature: 0.1,
+        stop: vec!["\nUSER REQUEST:", "ASSISTANT:"],
+        grammar,
     };
 
-    // 3. Create a blocking HTTP client and send the request.
-    let client = reqwest::blocking::Client::new();
-    let response = client.post(LLAMA_SERVER_URL).json(&request_body).send()?;
+    println!("Sending HTTP request to llama.cpp server...");
 
-    // 4. Check the response status and parse the JSON.
-    if response.status().is_success() {
-        let completion_response = response.json::<CompletionResponse>()?;
-        println!("\nInference finished successfully.");
-        // Return the "content" field from the server's response.
-        Ok(completion_response.content)
-    } else {
-        // If the server returned an error, display it.
-        let error_body = response.text()?;
-        Err(format!("Server returned an error: {}", error_body).into())
+    let client = Client::new();
+    let response = client
+        .post(LLM_SERVER_URL)
+        .json(&request_body)
+        .send()
+        .map_err(|e| e.to_string())?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "LLM server returned an error: {}",
+            response.status()
+        ));
     }
+
+    let response_json: Value = response.json().map_err(|e| e.to_string())?;
+    let content = response_json["content"]
+        .as_str()
+        .ok_or("Invalid response format: 'content' field is not a string")?
+        .trim() // Trim whitespace which can sometimes be added by the model
+        .to_string();
+
+    println!("\nInference finished successfully.");
+    Ok(content)
 }
