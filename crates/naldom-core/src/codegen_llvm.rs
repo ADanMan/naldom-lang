@@ -22,7 +22,6 @@ pub struct CodeGenContext<'ctx> {
 }
 
 impl<'ctx> CodeGenContext<'ctx> {
-    // CORRECTED: The function now accepts the module_name as an argument.
     fn new(context: &'ctx Context, module_name: &str) -> Self {
         let module = context.create_module(module_name);
         let builder = context.create_builder();
@@ -146,13 +145,16 @@ impl<'ctx> CodeGenContext<'ctx> {
 
     fn inkwell_type_to_naldom_type(&self, ty: BasicTypeEnum) -> LLType {
         match ty {
-            BasicTypeEnum::IntType(i) => match i.get_bit_width() {
-                32 => LLType::I32,
-                _ => LLType::I64,
-            },
+            BasicTypeEnum::IntType(i) => {
+                if i.get_bit_width() == 32 {
+                    LLType::I32
+                } else {
+                    LLType::I64
+                }
+            }
             BasicTypeEnum::FloatType(_) => LLType::F64,
             BasicTypeEnum::PointerType(_) => LLType::Pointer(Box::new(LLType::F64)),
-            _ => unimplemented!("This inkwell type cannot be converted back to Naldom type yet"),
+            _ => unimplemented!(),
         }
     }
 
@@ -165,7 +167,6 @@ impl<'ctx> CodeGenContext<'ctx> {
             .iter()
             .map(|(ty, _)| self.to_llvm_type(ty).into())
             .collect();
-
         match ret {
             LLType::Void => self.context.void_type().fn_type(&param_types, false),
             _ => self.to_llvm_type(ret).fn_type(&param_types, false),
@@ -187,6 +188,7 @@ impl<'ctx> CodeGenContext<'ctx> {
                         .registers
                         .get(reg)
                         .expect("Register not found during function declaration");
+                    // CORRECTED: Remove the unnecessary `.clone()`
                     self.to_llvm_type(ty).into()
                 }
                 _ => self.context.i64_type().into(),
@@ -194,8 +196,9 @@ impl<'ctx> CodeGenContext<'ctx> {
             .collect();
 
         let fn_type = if has_return {
-            let ptr_type = self.context.ptr_type(inkwell::AddressSpace::default());
-            ptr_type.fn_type(&arg_types, false)
+            self.context
+                .ptr_type(inkwell::AddressSpace::default())
+                .fn_type(&arg_types, false)
         } else {
             self.context.void_type().fn_type(&arg_types, false)
         };
