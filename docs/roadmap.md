@@ -17,21 +17,24 @@ gantt
     Tracing & Initial Unit Tests         :done, 2025-12-06, 15d
 
     section Phase 2: Core Compiler & Multi-Target (6 months)
-    IR-LL Development                    :crit, active, 2025-12-21, 45d
-    LLVM IR Generation                   :2026-02-04, 45d
-    WebAssembly Backend                  :2026-03-21, 30d
-    Enhanced Semantic Analyzer           :2026-04-20, 30d
-    Basic Optimizer                      :2026-05-20, 30d
-    Security (Sandbox Init)              :2026-06-19, 15d
-    Tests Expansion & IR-LL Verification :2026-07-04, 30d
+    IR-LL Development                    :done, 2025-12-21, 45d
+    LLVM IR Generation                   :done, 2026-02-04, 45d
+    WebAssembly Backend                  :done, 2026-03-21, 30d
+    Enhanced Semantic Analyzer           :done, 2026-04-20, 30d
+    Basic Optimizer                      :done, 2026-05-20, 30d
+    Security (Sandbox Init)              :done, 2026-06-19, 15d
+    Tests Expansion & IR-LL Verification :done, 2026-07-04, 30d
 
     section Phase 3: Full Compiler & Ecosystem (12 months)
-    Advanced Optimizer                   :2026-08-03, 60d
-    Cross-Platform Runtime (Full)        :2026-10-02, 90d
-    Full Target Code Generation          :2027-01-01, 60d
-    IDE Plugins (VS Code)                :2027-03-02, 45d
-    Developer Tools (REPL, Analyzer)     :2027-04-16, 45d
-    Package Manager (naldom-pkg)         :2027-06-01, 30d
-    Safety & Reverse Traceability        :2027-07-01, 30d
-    Comprehensive End-to-End Testing     :2027-08-01, 30d
+    FFI Implementation                   :crit, active, 2026-07-05, 45d
+    Standard Library Expansion           :2026-08-19, 60d
+    Contextual Optimizer                 :2026-10-18, 60d
+    LSP Server & VS Code Extension       :2026-12-17, 90d
+    Developer Tools (REPL, Docs)         :2027-03-17, 45d
+    Package Manager (`naldom-pkg`)       :2027-05-01, 60d
+    Advanced Safety (Traceability)       :2027-06-30, 30d
+
+    section Phase 4: Growth & Maturity (Ongoing)
+    Community Building                   :2027-07-30, 180d
+    Advanced Tooling (Debugger)          :2028-01-26, 180d
 ```

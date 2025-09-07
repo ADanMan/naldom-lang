@@ -35,37 +35,33 @@ Naldom transforms your natural language descriptions into executable code throug
 
 This sophisticated process eliminates the need for traditional, syntax-heavy programming, allowing you to focus on *what* you want to achieve, not *how* to write it in specific code.
 
-## Getting Started (v0.1.0-alpha)
+## Getting Started (v0.2.0-alpha)
 
-The current version of Naldom is a working prototype that can compile natural language into an executable Python script.
+The current version of Naldom can compile natural language into a native executable or a WebAssembly module.
+
+### Prerequisites
+
+To build and run Naldom, you will need the following installed on your system:
+
+1.  **Rust Toolchain:** Install via [rustup.rs](https://rustup.rs/).
+2.  **LLVM 17:** We recommend installing via your system's package manager (e.g., `brew install llvm@17` on macOS).
+3.  **Clang:** Usually installed as part of the LLVM package.
+4.  **llama.cpp:** Naldom requires a locally running `llama.cpp` server. Please follow the **[LLM Server Setup Guide](docs/development-setup/llm-server-setup.md)**.
 
 ### Step 1: Run the LLM Server
 
-Naldom's prototype relies on a locally running `llama.cpp` server for inference. You need to build and run this server first.
+Before using the compiler, you must have a `llama.cpp` server running. In a separate terminal, run a command similar to this (adjust the model path as needed):
 
 ```bash
-# Clone the llama.cpp repository
-git clone https://github.com/ggerganov/llama.cpp.git
-cd llama.cpp
-
-# Build with CMake and Metal support (for Apple Silicon)
-mkdir build && cd build
-cmake .. -DLLAMA_METAL=ON
-cmake --build . --config Release
-```
-
-Once built, run the server from the `build` directory, pointing it to your model file. **Keep this terminal window open.**
-
-```bash
-# Make sure to replace the path to your model file
-./bin/server -m /path/to/your/naldom-lang/llm/models/Qwen3-1.7B-Q8_0.gguf --host 127.0.0.1 --port 8080 -c 4096 -ngl 32
+# From your llama.cpp/build directory
+./bin/server -m /path/to/your/model.gguf --host 127.0.0.1 --port 8080
 ```
 
 For more detailed instructions, see our [Development Setup Guide](docs/development-setup/llm-server-setup.md).
 
 ### Step 2: Compile and Run a Naldom Program
 
-In a **new terminal window**, navigate to the `naldom-lang` project root.
+In a new terminal, navigate to the `naldom-lang` project root.
 
 First, create a file named `program.md` with the following content:
 ```markdown
@@ -76,28 +72,32 @@ Print the result.
 :::
 ```
 
-Now, compile it using `naldomc` (via `cargo run`):
+Now, compile and run it with a single command:
 ```bash
-# This command generates a self-contained Python script
-cargo run --package naldom-cli -- program.md -o output.py
-```
+# Set the LLVM_PREFIX if your LLVM installation is not in the system PATH
+export LLVM_PREFIX=$(brew --prefix llvm@17) # Example for macOS Homebrew
 
-Finally, execute the generated script:
-```bash
-python3 output.py
+# Compile and run the native executable with optimizations
+cargo run --package naldom-cli -- program.md --run -O2
 ```
 
 You should see the sorted array of random numbers printed to your console.
 
+To compile to **WebAssembly**, use the `--target` flag:
+```bash
+cargo run --package naldom-cli -- program.md --target wasm -o program.wasm
+```
+
 ## Roadmap Highlights
 
-✅ **Phase 1: Prototype** is complete! We have a working end-to-end pipeline that compiles natural language to Python.
+✅ **Phase 1: Prototype**
+✅ **Phase 2: Core Compiler & Multi-Target**
 
-Our ambitious future phases will include:
-*   Developing our custom Low-Level Intermediate Representation (IR-LL).
-*   Generating robust LLVM IR to support native binaries and WebAssembly.
-*   Building a comprehensive and minimal cross-platform runtime.
-*   Developing essential developer tools, including IDE plugins and a package manager.
+We are now entering **Phase 3: Full Compiler & Ecosystem**, which will focus on building a rich ecosystem around the compiler, including:
+*   A Foreign Function Interface (FFI).
+*   A robust standard library.
+*   IDE support via a Language Server Protocol (LSP) server.
+*   A package manager (`naldom-pkg`).
 
 You can find a more detailed roadmap in our [docs/roadmap.md](docs/roadmap.md).
 
@@ -111,4 +111,4 @@ Join our discussions on GitHub to share ideas, ask questions, and connect with o
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for more details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
