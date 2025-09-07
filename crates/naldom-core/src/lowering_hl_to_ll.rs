@@ -152,24 +152,132 @@ fn lower_expression_to_value(
         }
         HLExpression::Literal(HLValue::Integer(val)) => {
             // If an argument is a literal integer, we turn it into a constant.
-            // We assume i64 for now.
             LowLevelValue::Constant(LLConstant::I64(*val))
         }
         HLExpression::Literal(HLValue::String(val)) => {
-            // String literals are more complex. For now, we'll represent them as i64 constants
-            // as a placeholder. This will be properly implemented with memory management later.
             // A real implementation would store the string in memory and pass a pointer.
-            // For the prototype, this is a simplification.
-            // Let's use a simple hash or a placeholder value.
-            // For `sort_array('ascending')`, we can just pass 0 for ascending, 1 for descending.
-            let val_as_int = if val.to_lowercase() == "ascending" {
-                0
-            } else {
-                1
+            // For now, we convert common string commands to integer codes.
+            // 0 for "ascending", 1 for "descending". Other strings are not yet supported.
+            let val_as_int = match val.to_lowercase().as_str() {
+                "ascending" => 0,
+                "descending" => 1,
+                _ => unimplemented!("String literal '{}' is not yet supported", val),
             };
             LowLevelValue::Constant(LLConstant::I64(val_as_int))
         }
         // Other cases are not yet supported as arguments.
         _ => unimplemented!("Expression type not yet supported as argument"),
+    }
+}
+
+// Unit tests for the lowering pass.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_lowering_simple_program() {
+        // 1. Arrange: Create a mock HLProgram
+        let hl_program = HLProgram {
+            statements: vec![
+                HLStatement::Assign {
+                    variable: "var_0".to_string(),
+                    expression: HLExpression::FunctionCall {
+                        function: "create_random_array".to_string(),
+                        arguments: vec![HLExpression::Literal(HLValue::Integer(10))],
+                    },
+                },
+                HLStatement::Call {
+                    function: "sort_array".to_string(),
+                    arguments: vec![
+                        HLExpression::Variable("var_0".to_string()),
+                        HLExpression::Literal(HLValue::String("ascending".to_string())),
+                    ],
+                },
+                HLStatement::Call {
+                    function: "print_array".to_string(),
+                    arguments: vec![HLExpression::Variable("var_0".to_string())],
+                },
+            ],
+        };
+
+        // 2. Act: Run the lowering function
+        let ll_program = lower_hl_to_ll(&hl_program);
+
+        // 3. Assert: Check the structure of the output LLProgram
+        assert_eq!(
+            ll_program.functions.len(),
+            1,
+            "Should contain one main function"
+        );
+        let main_fn = &ll_program.functions[0];
+        assert_eq!(main_fn.name, "main");
+        assert_eq!(
+            main_fn.basic_blocks.len(),
+            1,
+            "Main function should have one basic block"
+        );
+
+        let instructions = &main_fn.basic_blocks[0].instructions;
+        assert_eq!(instructions.len(), 3, "Should have three call instructions");
+
+        // Check the first call (create_random_array)
+        if let LLInstruction::Call {
+            dest,
+            function_name,
+            arguments,
+        } = &instructions[0]
+        {
+            assert!(
+                dest.is_some(),
+                "CreateArray call should have a destination register"
+            );
+            assert_eq!(*function_name, "create_random_array");
+            assert_eq!(arguments.len(), 1);
+            assert_eq!(arguments[0], LowLevelValue::Constant(LLConstant::I64(10)));
+        } else {
+            panic!("First instruction was not a Call");
+        }
+
+        // Check the second call (sort_array)
+        if let LLInstruction::Call {
+            dest,
+            function_name,
+            arguments,
+        } = &instructions[1]
+        {
+            assert!(
+                dest.is_none(),
+                "SortArray call should not have a destination register"
+            );
+            assert_eq!(*function_name, "sort_array");
+            assert_eq!(arguments.len(), 2);
+            assert_eq!(arguments[0], LowLevelValue::Register(Register(0))); // Uses the result of the first call
+            assert_eq!(arguments[1], LowLevelValue::Constant(LLConstant::I64(0))); // "ascending" -> 0
+        } else {
+            panic!("Second instruction was not a Call");
+        }
+    }
+
+    #[test]
+    fn test_argument_lowering() {
+        // Arrange
+        let mut context = LoweringContext::new();
+        let reg0 = context.new_register();
+        context.variable_map.insert("var_0".to_string(), reg0);
+
+        let var_expr = HLExpression::Variable("var_0".to_string());
+        let int_expr = HLExpression::Literal(HLValue::Integer(42));
+        let str_expr = HLExpression::Literal(HLValue::String("descending".to_string()));
+
+        // Act
+        let var_val = lower_expression_to_value(&var_expr, &mut context);
+        let int_val = lower_expression_to_value(&int_expr, &mut context);
+        let str_val = lower_expression_to_value(&str_expr, &mut context);
+
+        // Assert
+        assert_eq!(var_val, LowLevelValue::Register(Register(0)));
+        assert_eq!(int_val, LowLevelValue::Constant(LLConstant::I64(42)));
+        assert_eq!(str_val, LowLevelValue::Constant(LLConstant::I64(1))); // "descending" -> 1
     }
 }

@@ -90,13 +90,11 @@ impl SemanticAnalyzer {
     }
 
     fn analyze_sort_array(&mut self, _params: &SortArrayParams) -> Result<(), String> {
-        // Check 1: Is there any variable to sort?
         let var_name = self.last_created_variable.as_ref().ok_or_else(|| {
             "Semantic Error: Attempted to sort, but no array has been created yet.".to_string()
         })?;
 
-        // Check 2: Is the variable of the correct type?
-        let symbol = self.symbol_table.get(var_name).unwrap(); // Should always exist if var_name exists
+        let symbol = self.symbol_table.get(var_name).unwrap();
         if symbol.symbol_type != SymbolType::Array {
             return Err(format!(
                 "Semantic Error: Attempted to sort '{}', which is not an Array. It has type {:?}.",
@@ -108,12 +106,10 @@ impl SemanticAnalyzer {
     }
 
     fn analyze_print_array(&mut self) -> Result<(), String> {
-        // Check 1: Is there any variable to print?
         let var_name = self.last_created_variable.as_ref().ok_or_else(|| {
             "Semantic Error: Attempted to print, but nothing has been created yet.".to_string()
         })?;
 
-        // Check 2: Is the variable of a printable type?
         let symbol = self.symbol_table.get(var_name).unwrap();
         if symbol.symbol_type != SymbolType::Array {
             return Err(format!(
@@ -123,5 +119,71 @@ impl SemanticAnalyzer {
         }
 
         Ok(())
+    }
+}
+
+// Unit tests for the semantic analyzer.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_analyze_valid_sequence() {
+        // Arrange
+        let intent_graph = vec![
+            Intent::CreateArray(CreateArrayParams {
+                size: 5,
+                source: "random".to_string(),
+            }),
+            Intent::SortArray(SortArrayParams {
+                order: "ascending".to_string(),
+            }),
+            Intent::PrintArray,
+        ];
+        let mut analyzer = SemanticAnalyzer::new();
+
+        // Act
+        let result = analyzer.analyze(&intent_graph);
+
+        // Assert
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_analyze_sort_before_create() {
+        // Arrange
+        let intent_graph = vec![
+            Intent::SortArray(SortArrayParams {
+                order: "ascending".to_string(),
+            }),
+            Intent::CreateArray(CreateArrayParams {
+                size: 5,
+                source: "random".to_string(),
+            }),
+        ];
+        let mut analyzer = SemanticAnalyzer::new();
+
+        // Act
+        let result = analyzer.analyze(&intent_graph);
+
+        // Assert
+        assert!(result.is_err());
+        let error_message = result.unwrap_err();
+        assert!(error_message.contains("Attempted to sort, but no array has been created yet."));
+    }
+
+    #[test]
+    fn test_analyze_print_before_create() {
+        // Arrange
+        let intent_graph = vec![Intent::PrintArray];
+        let mut analyzer = SemanticAnalyzer::new();
+
+        // Act
+        let result = analyzer.analyze(&intent_graph);
+
+        // Assert
+        assert!(result.is_err());
+        let error_message = result.unwrap_err();
+        assert!(error_message.contains("Attempted to print, but nothing has been created yet."));
     }
 }
