@@ -14,8 +14,9 @@ Before you start, make sure you have the necessary tools installed. Naldom's cor
 
 ### Prerequisites
 
-*   **Rust Toolchain:** Install Rust and Cargo (Rust's package manager) by following the instructions on [rustup.rs](https://rustup.rs/).
+*   **Rust Toolchain:** Install Rust and Cargo by following the instructions on [rustup.rs](https://rustup.rs/).
 *   **Git:** For version control.
+*   **LLVM 17 & Clang:** The compiler depends on LLVM 17. We recommend installing it via your system's package manager (e.g., `brew install llvm@17` on macOS).
 
 ### Setting up your Development Environment
 
@@ -26,9 +27,14 @@ Before you start, make sure you have the necessary tools installed. Naldom's cor
     cd naldom-lang
     ```
 3.  **Set up the LLM Server:** Naldom requires a locally running `llama.cpp` server. Please follow the **[LLM Server Setup Guide](docs/development-setup/llm-server-setup.md)** to get it running.
-4.  **Install Dependencies:**
+4.  **Set LLVM Environment Variable:** For `cargo` to find your LLVM installation, you may need to set an environment variable. In the terminal session where you will build the project, run:
     ```bash
-    # This command will build the project and download necessary dependencies
+    # Example for macOS with Homebrew
+    export LLVM_PREFIX=$(brew --prefix llvm@17)
+    ```
+5.  **Build the Project:**
+    ```bash
+    # This command will build all crates and download dependencies
     cargo build
     ```
 
@@ -72,17 +78,18 @@ We welcome your code contributions! Here’s how to submit a Pull Request (PR):
     git checkout -b feature/your-feature-name
     ```
 2.  **Make Your Changes:** Implement your feature or bug fix.
-3.  **Test Your Changes:** Ensure your changes are thoroughly tested. Write new unit and integration tests where appropriate.
+
+3.  **Test Your Changes:** Ensure your changes are thoroughly tested.
     ```bash
-    cargo test
+    cargo test --all-targets
     ```
 4.  **Format Your Code:** We use `rustfmt` to maintain a consistent code style.
     ```bash
-    cargo fmt
+    cargo fmt --all
     ```
-5.  **Lint Your Code:**
+5.  **Lint Your Code:** We enforce a strict set of lints. Your code must pass `clippy` before merging.
     ```bash
-    cargo clippy
+    cargo clippy --all-targets -- -D warnings
     ```
 6.  **Write Clear Commit Messages:** Follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification. A good commit message looks like:
     ```
