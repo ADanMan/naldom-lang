@@ -7,3 +7,4 @@ description = "Minimal cross-platform runtime for Naldom generated code."
 
 [dependencies]
 # Example: wasmtime = "19.0" # If WASM runtime is implemented directly
+tokio = { version = "1.37.0", features = ["rt", "macros", "time"] }
