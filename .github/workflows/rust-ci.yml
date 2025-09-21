@@ -21,20 +21,28 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Install LLVM 17
-        uses: KyleMayes/install-llvm-action@v2
         with:
-          version: "17"
+          components: rustfmt, clippy
+
+      - name: Install LLVM and Clang 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-17 clang-17 libclang-17-dev
+
+      - name: Set LLVM environment variables
+        run: |
+          LLVM_PATH=$(llvm-config-17 --prefix)
+          echo "LLVM_PREFIX=$LLVM_PATH" >> $GITHUB_ENV
+          echo "LLVM_SYS_170_PREFIX=$LLVM_PATH" >> $GITHUB_ENV
 
       - name: Check formatting
         run: cargo fmt --all -- --check
 
       - name: Run Clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --all-targets --features naldom-core/mock-llm -- -D warnings
 
       - name: Build
-        run: cargo build --verbose
+        run: cargo build --verbose --features naldom-core/mock-llm
 
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo test --all-targets --verbose --features naldom-core/mock-llm
