@@ -28,7 +28,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential
-          sudo apt-get install -y llvm-17 llvm-17-dev clang-17 libclang-17-dev
+          sudo apt-get install -y llvm-17-dev clang-17 libclang-17-dev libpolly-17-dev
+
+      - name: Create llvm-config symlink
+        run: sudo ln -s /usr/bin/llvm-config-17 /usr/bin/llvm-config
 
       - name: Set LLVM environment variables
         run: |
