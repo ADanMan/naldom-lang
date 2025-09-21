@@ -70,6 +70,7 @@ impl<'ctx> CodeGenContext<'ctx> {
                 arguments,
             } => {
                 let callee = self.module.get_function(function_name).unwrap_or_else(|| {
+                    // This logic is now robust enough to declare our new sleep function
                     self.declare_placeholder_function(function_name, arguments, dest.is_some())
                 });
 
@@ -173,6 +174,7 @@ impl<'ctx> CodeGenContext<'ctx> {
         }
     }
 
+    // This function is now more robust and can handle our new sleep function correctly.
     fn declare_placeholder_function(
         &self,
         name: &str,
@@ -181,21 +183,28 @@ impl<'ctx> CodeGenContext<'ctx> {
     ) -> FunctionValue<'ctx> {
         let arg_types: Vec<BasicMetadataTypeEnum> = args
             .iter()
-            .map(|arg| match arg {
-                NaldomValue::Constant(LLConstant::I64(_)) => self.context.i64_type().into(),
-                NaldomValue::Register(reg) => {
-                    let (_, ty) = self
-                        .registers
-                        .get(reg)
-                        .expect("Register not found during function declaration");
-                    // CORRECTED: Remove the unnecessary `.clone()`
-                    self.to_llvm_type(ty).into()
-                }
-                _ => self.context.i64_type().into(),
+            .map(|arg| {
+                let naldom_type = match arg {
+                    NaldomValue::Constant(c) => match c {
+                        LLConstant::I32(_) => LLType::I32,
+                        LLConstant::I64(_) => LLType::I64,
+                        LLConstant::F64(_) => LLType::F64,
+                    },
+                    NaldomValue::Register(reg) => {
+                        // The `_ptr` is the PointerValue, `ty` is the LLType
+                        let (_ptr, ty) = self
+                            .registers
+                            .get(reg)
+                            .expect("Register not found during function declaration");
+                        ty.clone()
+                    }
+                };
+                self.to_llvm_type(&naldom_type).into()
             })
             .collect();
 
         let fn_type = if has_return {
+            // Assuming pointer return for now, as that's what create_random_array does
             self.context
                 .ptr_type(inkwell::AddressSpace::default())
                 .fn_type(&arg_types, false)

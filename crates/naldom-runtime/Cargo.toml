@@ -6,8 +6,9 @@ edition = "2024"
 description = "Minimal cross-platform runtime for Naldom generated code."
 
 [lib]
-crate-type = ["staticlib"]
+crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 # Example: wasmtime = "19.0" # If WASM runtime is implemented directly
 tokio = { version = "1.37.0", features = ["rt", "macros", "time"] }
+lazy_static = "1.4.0"

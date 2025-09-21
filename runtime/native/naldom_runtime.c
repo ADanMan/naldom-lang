@@ -78,4 +78,6 @@ void print_array(NaldomArray* arr) {
         printf("%.2f%s", arr->data[i], (i == arr->size - 1) ? "" : ", ");
     }
     printf("]\n--------------------------\n\n");
+    
+    fflush(stdout);
 }
