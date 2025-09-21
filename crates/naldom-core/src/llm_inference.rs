@@ -1,30 +1,30 @@
 // crates/naldom-core/src/llm_inference.rs
 
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-
-const LLM_SERVER_URL: &str = "http://127.0.0.1:8080/completion";
-
-#[derive(Serialize)]
-struct LlmRequest {
-    prompt: String,
-    n_predict: i32,
-    temperature: f32,
-    stop: Vec<String>,
-    grammar: String,
-}
-
-#[derive(Deserialize)]
-struct LlmResponse {
-    content: String,
-}
-
-/// Runs inference against the local llama.cpp server asynchronously.
+// This block is compiled ONLY when the `mock-llm` feature is NOT enabled.
+#[cfg(not(feature = "mock-llm"))]
 pub async fn run_inference(user_prompt: &str) -> Result<String, String> {
+    use reqwest::Client;
+    use serde::{Deserialize, Serialize};
+
+    const LLM_SERVER_URL: &str = "http://127.0.0.1:8080/completion"; // Corrected IP address
+
+    #[derive(Serialize)]
+    struct LlmRequest {
+        prompt: String,
+        n_predict: i32,
+        temperature: f32,
+        stop: Vec<String>,
+        grammar: String,
+    }
+
+    #[derive(Deserialize)]
+    struct LlmResponse {
+        content: String,
+    }
+
     let system_prompt = r#"
 CONTEXT:
 You are an expert Frontend Compiler. Your task is to analyze the user's request, which is written in a natural language called Naldom, and transform it into a strictly structured JSON array of "intents". This JSON is the Abstract Syntax Tree (AST) for the Naldom language.
-
 TASK:
 1. Analyze the user's request.
 2. Identify the sequence of operations the user wants to perform.
@@ -32,20 +32,17 @@ TASK:
 4. Construct a JSON object for each intent.
 5. Combine these objects into a single JSON array.
 6. Respond with ONLY the raw JSON array.
-
 IMPORTANT:
 - You MUST respond with ONLY the JSON array. Do not include any extra text, explanations, markdown formatting, or "think" blocks.
 - If a parameter is not specified by the user, you MUST use a sensible default value as specified below.
 - You MUST NOT generate an intent that operates on a variable before it has been created.
-
 DEFAULT VALUES:
 - For the "SortArray" intent, if the order is not specified, you MUST default to "ascending".
-
 AVAILABLE INTENTS (JSON Schema):
 [
     {
         "intent": "CreateArray",
-        "parameters": { "size": "u32" } // Updated: removed "source"
+        "parameters": { "size": "u32" }
     },
     {
         "intent": "SortArray",
@@ -59,7 +56,6 @@ AVAILABLE INTENTS (JSON Schema):
         "parameters": { "durationMs": "u64" }
     }
 ]
-
 USER REQUEST:
 "#;
 
@@ -72,9 +68,7 @@ params ::= "{" ws param ("," ws param)* ws "}"
 param  ::= "\"" string "\"" ws ":" ws value
 value  ::= string-literal | number
 string-literal ::= "\"" string "\""
-
 intent-name ::= "CreateArray" | "SortArray" | "PrintArray" | "Wait"
-
 string ::= ([^"\\] | "\\" (["\\/bfnrt] | "u" [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]))*
 number ::= "-"? ([0-9] | [1-9] [0-9]*) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?
 ws ::= [ \t\n\r]*
@@ -119,4 +113,29 @@ ws ::= [ \t\n\r]*
 
     println!("\nInference finished successfully.");
     Ok(content)
+}
+
+// This block is compiled ONLY when the `mock-llm` feature IS enabled.
+#[cfg(feature = "mock-llm")]
+pub async fn run_inference(_user_prompt: &str) -> Result<String, String> {
+    println!("--- Using Mock LLM Inference ---");
+    let mock_response = r#"
+    [
+        {
+            "intent": "CreateArray",
+            "parameters": { "size": 5 }
+        },
+        {
+            "intent": "PrintArray"
+        },
+        {
+            "intent": "Wait",
+            "parameters": { "durationMs": 100 }
+        },
+        {
+            "intent": "PrintArray"
+        }
+    ]
+    "#;
+    Ok(mock_response.to_string())
 }
