@@ -24,10 +24,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Install LLVM and Clang 17
+      - name: Install System Dependencies (Build Tools, LLVM 17)
         run: |
           sudo apt-get update
-          sudo apt-get install -y llvm-17 clang-17 libclang-17-dev
+          sudo apt-get install -y build-essential
+          sudo apt-get install -y llvm-17 llvm-17-dev clang-17 libclang-17-dev
 
       - name: Set LLVM environment variables
         run: |
