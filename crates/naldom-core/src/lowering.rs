@@ -90,3 +90,28 @@ const FUNC_CREATE_RANDOM_ARRAY: &str = "create_random_array";
 const FUNC_SORT_ARRAY: &str = "sort_array";
 const FUNC_PRINT_ARRAY: &str = "print_array";
 const FUNC_ASYNC_SLEEP: &str = "naldom_async_sleep";
+
+// --- Unit Tests ---
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use naldom_ir::WaitParams;
+
+    #[test]
+    fn test_lowering_wait_intent() {
+        // Arrange
+        let intent_graph = vec![Intent::Wait(WaitParams { duration_ms: 500 })];
+        let mut context = LoweringContext::new();
+
+        // Act
+        let hl_program = context.lower(&intent_graph);
+
+        // Assert
+        assert_eq!(hl_program.statements.len(), 1);
+        let expected_statement = HLStatement::Call {
+            function: FUNC_ASYNC_SLEEP.to_string(),
+            arguments: vec![HLExpression::Literal(HLValue::Integer(500))],
+        };
+        assert_eq!(hl_program.statements[0], expected_statement);
+    }
+}
