@@ -10,7 +10,7 @@ use naldom_core::semantic_analyzer::SemanticAnalyzer;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, exit};
+use std::process::{Command, Stdio};
 
 /// The Naldom Compiler CLI
 #[derive(Parser, Debug)]
@@ -31,7 +31,10 @@ struct Args {
     emit: Option<String>,
 }
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    naldom_runtime::ensure_linked();
+
     let args = Args::parse();
     let output_path = args.output.clone().unwrap_or_else(|| {
         if args.target == "wasm" {
@@ -41,19 +44,13 @@ fn main() {
         }
     });
 
-    let llvm_ir = match run_compiler_pipeline(&args) {
-        Ok(ir) => ir,
-        Err(e) => {
-            eprintln!("Compilation failed: {}", e);
-            exit(1);
-        }
-    };
+    let llvm_ir = run_compiler_pipeline(&args).await?;
 
     if let Some(emit_format) = &args.emit
         && emit_format == "llvm-ir"
     {
         println!("{}", llvm_ir);
-        return;
+        return Ok(());
     }
 
     let compile_result = if args.target == "wasm" {
@@ -63,8 +60,7 @@ fn main() {
     };
 
     if let Err(e) = compile_result {
-        eprintln!("Failed to compile for target '{}': {}", args.target, e);
-        exit(1);
+        return Err(format!("Failed to compile for target '{}': {}", args.target, e).into());
     }
 
     println!("Successfully compiled to '{}'", output_path.display());
@@ -75,15 +71,19 @@ fn main() {
                 "\nCannot run wasm target directly. Use a Wasm runtime like wasmtime or a browser."
             );
         } else {
-            run_native_executable(&output_path);
+            run_native_executable(&output_path)?;
         }
     }
+
+    Ok(())
 }
 
-fn run_compiler_pipeline(args: &Args) -> Result<String, String> {
+async fn run_compiler_pipeline(args: &Args) -> Result<String, String> {
     let source_code = fs::read_to_string(&args.file_path)
         .map_err(|e| format!("Error reading file '{}': {}", args.file_path.display(), e))?;
-    let llm_response = run_inference(&source_code)?;
+
+    let llm_response = run_inference(&source_code).await?;
+
     let intent_graph = parse_to_intent_graph(&llm_response).map_err(|e| {
         format!(
             "Error parsing LLM response into IntentGraph: {}\n--- LLM Response ---\n{}\n--------------------",
@@ -122,21 +122,27 @@ fn run_compiler_pipeline(args: &Args) -> Result<String, String> {
     generate_llvm_ir(&ll_program, &target_triple_string)
 }
 
-fn run_native_executable(executable_path: &Path) {
+fn run_native_executable(executable_path: &Path) -> Result<(), std::io::Error> {
     println!("\nRunning '{}'...\n", executable_path.display());
     let mut command_path = PathBuf::from("./");
     command_path.push(executable_path);
 
-    let output = Command::new(&command_path)
-        .output()
-        .expect("Failed to execute compiled program");
+    // Instead of capturing output, we inherit the stdio handles.
+    // This connects the child process's output directly to our terminal,
+    // which fixes the buffering issue and allows us to see output in real-time.
+    let status = Command::new(&command_path)
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status()?; // Use .status() instead of .output()
 
-    if !output.stdout.is_empty() {
-        println!("{}", String::from_utf8_lossy(&output.stdout));
+    if !status.success() {
+        eprintln!(
+            "\n❌ Program exited with non-zero status: {}",
+            status.code().unwrap_or(1)
+        );
     }
-    if !output.stderr.is_empty() {
-        eprintln!("{}", String::from_utf8_lossy(&output.stderr));
-    }
+
+    Ok(())
 }
 
 fn compile_native(llvm_ir: &str, output_path: &Path, opt_level: u8) -> Result<(), String> {
@@ -165,14 +171,25 @@ fn compile_native(llvm_ir: &str, output_path: &Path, opt_level: u8) -> Result<()
         return Err(String::from_utf8_lossy(&llc_output.stderr).to_string());
     }
     let runtime_path = "runtime/native/naldom_runtime.c";
+
+    let linker_path = if cfg!(debug_assertions) {
+        "target/debug"
+    } else {
+        "target/release"
+    };
+
     let clang_output = Command::new(&clang_path)
         .arg(&obj_path)
         .arg(runtime_path)
+        .arg("-L")
+        .arg(linker_path)
+        .arg("-lnaldom_runtime")
         .arg("-o")
         .arg(output_path)
         .arg(&opt_flag)
         .output()
         .map_err(|e| e.to_string())?;
+
     if !clang_output.status.success() {
         return Err(String::from_utf8_lossy(&clang_output.stderr).to_string());
     }

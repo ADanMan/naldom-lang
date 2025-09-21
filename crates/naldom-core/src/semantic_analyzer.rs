@@ -1,6 +1,6 @@
 // crates/naldom-core/src/semantic_analyzer.rs
 
-use naldom_ir::{CreateArrayParams, Intent, SortArrayParams};
+use naldom_ir::{CreateArrayParams, Intent, SortArrayParams, WaitParams};
 use std::collections::HashMap;
 
 /// Represents the types known to our type system.
@@ -75,6 +75,7 @@ impl SemanticAnalyzer {
             Intent::CreateArray(params) => self.analyze_create_array(params),
             Intent::SortArray(params) => self.analyze_sort_array(params),
             Intent::PrintArray => self.analyze_print_array(),
+            Intent::Wait(params) => self.analyze_wait(params),
         }
     }
 
@@ -120,6 +121,10 @@ impl SemanticAnalyzer {
 
         Ok(())
     }
+
+    fn analyze_wait(&mut self, _params: &WaitParams) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 // Unit tests for the semantic analyzer.
@@ -133,7 +138,7 @@ mod tests {
         let intent_graph = vec![
             Intent::CreateArray(CreateArrayParams {
                 size: 5,
-                source: "random".to_string(),
+                // The `source` field is removed here
             }),
             Intent::SortArray(SortArrayParams {
                 order: "ascending".to_string(),
@@ -158,7 +163,7 @@ mod tests {
             }),
             Intent::CreateArray(CreateArrayParams {
                 size: 5,
-                source: "random".to_string(),
+                // The `source` field is removed here
             }),
         ];
         let mut analyzer = SemanticAnalyzer::new();

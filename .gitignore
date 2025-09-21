@@ -4,7 +4,8 @@
 # GENERAL
 # -----------------------------------------------
 # Operating System Files
-.DS_Store # macOS specific
+.cursor/
+.DS_Store
 .Spotlight-V100
 .Trashes
 ehthumbs.db

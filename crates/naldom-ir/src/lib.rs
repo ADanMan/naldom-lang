@@ -3,35 +3,34 @@
 use serde::Deserialize;
 
 /// Represents a single user intent, parsed from the LLM's JSON output.
-/// This is the core enum for the IntentGraph.
-///
-/// Serde attributes explained:
-/// - `#[serde(tag = "intent")]`: Tells serde that this is a "tagged" enum. The field named "intent"
-///   in the JSON will determine which variant of this enum to use.
-///   (e.g., `"intent": "CreateArray"` maps to `Intent::CreateArray`).
-/// - `#[serde(content = "parameters")]`: Tells serde that the data for the variant (if any)
-///   is located in a field named "parameters".
-/// - `#[serde(rename_all = "PascalCase")]`: Automatically converts JSON's "PascalCase" names
-///   (like "CreateArray") to Rust's PascalCase enum variants (like `CreateArray`).
 #[derive(Debug, Deserialize, Clone)]
 #[serde(tag = "intent", content = "parameters", rename_all = "PascalCase")]
 pub enum Intent {
     CreateArray(CreateArrayParams),
     SortArray(SortArrayParams),
     PrintArray,
+    Wait(WaitParams),
 }
 
 /// Parameters for the `CreateArray` intent.
 #[derive(Debug, Deserialize, Clone)]
 pub struct CreateArrayParams {
     pub size: u32,
-    pub source: String,
+    // The `source` field is removed for now to simplify things.
+    // We will re-introduce it when we support different array sources.
 }
 
 /// Parameters for the `SortArray` intent.
 #[derive(Debug, Deserialize, Clone)]
 pub struct SortArrayParams {
     pub order: String,
+}
+
+/// Parameters for the `Wait` intent.
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct WaitParams {
+    pub duration_ms: u64,
 }
 
 /// High-Level Intermediate Representation (IR-HL).

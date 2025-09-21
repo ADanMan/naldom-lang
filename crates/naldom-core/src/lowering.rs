@@ -10,7 +10,6 @@ pub struct LoweringContext {
 }
 
 // Implement the `Default` trait as suggested by Clippy.
-// This allows creating a new, empty context with `LoweringContext::default()`.
 impl Default for LoweringContext {
     fn default() -> Self {
         Self::new()
@@ -62,7 +61,6 @@ impl LoweringContext {
                             ],
                         });
                     }
-                    // TODO: Handle the case where there is no variable to sort (error).
                 }
                 Intent::PrintArray => {
                     if let Some(var_to_print) = &self.last_created_variable {
@@ -71,7 +69,14 @@ impl LoweringContext {
                             arguments: vec![HLExpression::Variable(var_to_print.clone())],
                         });
                     }
-                    // TODO: Handle the case where there is no variable to print (error).
+                }
+                Intent::Wait(params) => {
+                    statements.push(HLStatement::Call {
+                        function: FUNC_ASYNC_SLEEP.to_string(),
+                        arguments: vec![HLExpression::Literal(HLValue::Integer(
+                            params.duration_ms as i64,
+                        ))],
+                    });
                 }
             }
         }
@@ -84,3 +89,29 @@ impl LoweringContext {
 const FUNC_CREATE_RANDOM_ARRAY: &str = "create_random_array";
 const FUNC_SORT_ARRAY: &str = "sort_array";
 const FUNC_PRINT_ARRAY: &str = "print_array";
+const FUNC_ASYNC_SLEEP: &str = "naldom_async_sleep";
+
+// --- Unit Tests ---
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use naldom_ir::WaitParams;
+
+    #[test]
+    fn test_lowering_wait_intent() {
+        // Arrange
+        let intent_graph = vec![Intent::Wait(WaitParams { duration_ms: 500 })];
+        let mut context = LoweringContext::new();
+
+        // Act
+        let hl_program = context.lower(&intent_graph);
+
+        // Assert
+        assert_eq!(hl_program.statements.len(), 1);
+        let expected_statement = HLStatement::Call {
+            function: FUNC_ASYNC_SLEEP.to_string(),
+            arguments: vec![HLExpression::Literal(HLValue::Integer(500))],
+        };
+        assert_eq!(hl_program.statements[0], expected_statement);
+    }
+}

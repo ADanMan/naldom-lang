@@ -5,17 +5,21 @@
 #include <stdint.h>
 #include <time.h>
 
+// Forward declaration for the Rust function we will link against.
+// The actual implementation is in the `naldom-runtime` crate.
+void naldom_async_sleep(uint64_t ms);
+
+
+// --- Existing Runtime Code (unchanged) ---
+
 // A simple struct to act as a "fat pointer" for our arrays,
 // containing both the data and its size.
-// This is a common pattern when interfacing with languages that don't
-// have built-in array sizes.
 typedef struct {
     double* data;
     int64_t size;
 } NaldomArray;
 
 // This function is called from our compiled code.
-// It must be marked `extern "C"` if we were in C++, but in C it's the default.
 NaldomArray* create_random_array(int64_t size) {
     printf("Runtime: Creating an array of %lld random numbers...\n", size);
 
@@ -74,4 +78,6 @@ void print_array(NaldomArray* arr) {
         printf("%.2f%s", arr->data[i], (i == arr->size - 1) ? "" : ", ");
     }
     printf("]\n--------------------------\n\n");
+    
+    fflush(stdout);
 }

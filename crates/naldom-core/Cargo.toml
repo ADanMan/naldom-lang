@@ -9,7 +9,8 @@ description = "Core compiler components for Naldom: NLD Parser, IntentGraph, Sem
 
 [dependencies]
 naldom-ir = { path = "../naldom-ir" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-reqwest = { version = "0.12.5", features = ["blocking", "json"] }
+serde = { version = "1.0.203", features = ["derive"] }
+serde_json = "1.0.117"
+# Use the async version of reqwest with the json feature
+reqwest = { version = "0.12.4", features = ["json"] }
 inkwell = { version = "0.6.0", default-features = false, features = ["llvm17-0", "target-x86", "target-webassembly"] }

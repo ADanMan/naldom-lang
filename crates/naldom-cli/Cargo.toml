@@ -7,8 +7,10 @@ description = "Command-line interface (CLI) for the Naldom language."
 
 [dependencies]
 naldom-core = { path = "../naldom-core" }
+naldom-runtime = { path = "../naldom-runtime" }
 clap = { version = "4.5.4", features = ["derive"] }
 inkwell = { version = "0.6.0", default-features = false, features = ["llvm17-0", "target-x86", "target-webassembly"] }
+tokio = { version = "1.37.0", features = ["full"] }
 
 # Dependencies used only for running tests and benchmarks.
 [dev-dependencies]
